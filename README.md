@@ -21,7 +21,7 @@ Your project will consist of two main parts:
 - A [template](/ai-agent-template/) based on the [Cloudflare Chat Agent Starter Kit](https://github.com/cloudflare/agents-starter) with:
   - Built-in MCP Server connection tools
   - Integration with the [Fiberplane AI agents playground](https://github.com/fiberplane/fiberplane/tree/main/packages/agents)
-- Access to Fiberplane's Codegen project for generating:
+- Access to Fiberplane's Codegen platform for generating:
   - MCP servers that run on Cloudflare
   - Hono APIs for integrating with external services (Notion, GitHub, etc.)
 - Anthropic credentials for the LLM that controls the agent
