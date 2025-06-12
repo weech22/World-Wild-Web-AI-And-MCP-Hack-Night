@@ -14,14 +14,14 @@ You can find the tool in the [src/tools.ts](/src/tools.ts) file.
 
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [pnpm](https://pnpm.io/) package manager  (or the one of your choice npm, yarn, etc)
-- OpenAI API key (get one from [OpenAI Platform](https://platform.openai.com/))
+- Anthropic API key (get one from [Anthropic](https://console.anthropic.com/), or use one that we will provide during the Hack Night.)
 
 ## Quick Start
 
 1. Clone this repo
 2. Create a `.dev.vars` file in the root directory:
 ```
-OPENAI_API_KEY=your-key-goes-here
+ANTHROPIC_API_KEY=your-key-goes-here
 ```
 3. Install dependencies:
 ```bash
@@ -40,7 +40,7 @@ Now you're ready to start hacking! Choose your path:
 
 1. Create a MCP server and add it to the agent
    - use Fiberplane's codegen to create a MCP server (TODO)
-      - join this Slack channel (we will add you to the codegen project)
+      -Join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#ldn-hacknight`. We will add you to the codegen project.
       - start prompting your MCP server
    - add the MCP server to the agent by chatting with the agent and providing the URL of the MCP server
    - **Important:** Avoid MCP servers with authentication for now.

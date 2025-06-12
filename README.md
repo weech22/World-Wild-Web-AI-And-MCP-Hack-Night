@@ -15,10 +15,10 @@ This hacknight is all about exploration and creativity with AI agents and MCP se
 ### Core Components
 Your project will consist of two main parts:
 1. **An AI Agent**: A chat-based assistant with its own personality and purpose
-2. **Backend Services**: MCP servers and APIs that give your agent real-world capabilities
+2. **Backend Services**: MCP server, agent tools and APIs that give your agent real-world capabilities
 
 ### What We Provide to Get Started:
-- A template based on the [Cloudflare Chat Agent Starter Kit](https://github.com/cloudflare/agents-starter) with:
+- A [template](/ai-agent-template/) based on the [Cloudflare Chat Agent Starter Kit](https://github.com/cloudflare/agents-starter) with:
   - Built-in MCP Server connection tools
   - Integration with the [Fiberplane AI agents playground](https://github.com/fiberplane/fiberplane/tree/main/packages/agents)
 - Access to Fiberplane's Codegen project for generating:
@@ -27,13 +27,13 @@ Your project will consist of two main parts:
 - Anthropic credentials for the LLM that controls the agent
 
 ### Quick Start
-1. Clone the template from the `templates/ai-agent-template` directory
+1. Clone the template from the [ai-agent-template](/ai-agent-template) directory
 2. Follow the setup instructions in the template's README
 3. Test that your AI agent works locally
 
 **During the Hacknight**:
 1. Get access to Codegen and create your MCP server
-2. Connect your agent to the MCP server
+2. Connect your agent to the MCP server (Note: Choose an MCP server without authentication)
 3. Start building your features!
 
 ### Need Inspiration?
@@ -46,11 +46,13 @@ While you're free to build anything, here are some ideas for your themed AI agen
 - Personal CRM
 
 ### Fiberplane Codegen Project & Anthropic API Key
-For access to the early pre-beta version of Fiberplane's Codegen project, please join this Slack channel: TODO and share your GitHub handle. We will add you to the platform.
+For access to the early pre-beta version of Fiberplane's Codegen project, please join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#ldn-hacknight` channel. We will add you to the platform and also share the Anthropic API key for the Hack Night.
 
 
-## Examples and Inspiration
-TODO
+## Examples, Resources and Inspiration
+- [Cloudflare agents docs](https://developers.cloudflare.com/agents/)
+- [Selfies to stickers agent](https://github.com/craigsdennis/event-stickers-agent)
+- [Remote MCP server on Cloudflare](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-authless)
 
 ## Evaluation Criteria
 - Extra points for shared GitHub repo
@@ -61,7 +63,7 @@ TODO
 
 ### Submission
 If you'd like to present your project:
-1. Fill out [this form](#) (link to be added)
+1. Fill out [this form](https://forms.gle/YKtSpnK6ohRc4DLDA)
 2. Join the Google Meet call we'll share near the end of the event
 
 We're using a shared call to make presentations smooth and avoid switching between computers.
