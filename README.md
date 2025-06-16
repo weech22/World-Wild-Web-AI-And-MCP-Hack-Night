@@ -5,7 +5,7 @@ We recommend getting familiar with the challenge before the hacknight, as it wil
 
 ## Prerequisites
 - Your own laptop
-- Node.js and a JS package manager installed
+- Node.js and a JS package manager (npm, yarn, pnpm, bun) installed
 - A Cloudflare account
 - A GitHub account
 
@@ -24,7 +24,7 @@ Your project will consist of two main parts:
 - Access to Fiberplane's Codegen platform for generating:
   - MCP servers that run on Cloudflare
   - Hono APIs for integrating with external services (Notion, GitHub, etc.)
-- Anthropic credentials for the LLM that controls the agent
+- Anthropic credentials for the LLM that controls the agent. Credentials will be provided for the duration of the hacknight. 
 
 ### Quick Start
 1. Clone the template from the [ai-agent-template](/ai-agent-template) directory
