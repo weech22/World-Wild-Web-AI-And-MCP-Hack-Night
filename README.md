@@ -6,8 +6,9 @@ We recommend getting familiar with the challenge before the hacknight, as it wil
 ## Prerequisites
 - Your own laptop
 - Node.js and a JS package manager (npm, yarn, pnpm, bun) installed
-- A Cloudflare account
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up)
 - A GitHub account
+- [Genimi API key](https://aistudio.google.com/apikey)
 
 ## The Challenge
 This hacknight is all about exploration and creativity with AI agents and MCP servers! Build something that excites you - whether it's practical, experimental, or just fun.
@@ -24,7 +25,7 @@ Your project will consist of two main parts:
 - Access to Fiberplane's Codegen platform for generating:
   - MCP servers that run on Cloudflare
   - Hono APIs for integrating with external services (Notion, GitHub, etc.)
-- Anthropic credentials for the LLM that controls the agent. Credentials will be provided for the duration of the hacknight. 
+
 
 ### Quick Start
 1. Clone the template from the [ai-agent-template](/ai-agent-template) directory
@@ -46,7 +47,7 @@ While you're free to build anything, here are some ideas for your themed AI agen
 - Personal CRM
 
 ### Fiberplane Codegen Project & Anthropic API Key
-For access to the early pre-beta version of Fiberplane's Codegen project, please join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#ldn-hacknight` channel. We will add you to the platform and also share the Anthropic API key for the Hack Night.
+For access to the early pre-beta version of Fiberplane's Codegen project, please join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#codegen` channel. We will add you to the platform.
 
 
 ## Examples, Resources and Inspiration
@@ -55,7 +56,6 @@ For access to the early pre-beta version of Fiberplane's Codegen project, please
 - [Remote MCP server on Cloudflare](https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-authless)
 
 ## Evaluation Criteria
-- Extra points for shared GitHub repo
 - Live demos are preferred over presentation slides
 - Agents and MCP server should run on Cloudflare (can be also locally)
 - Extra points if you add a code-generated MCP server to your AI agent
@@ -63,7 +63,7 @@ For access to the early pre-beta version of Fiberplane's Codegen project, please
 
 ### Submission
 If you'd like to present your project:
-1. Fill out [this form](https://forms.gle/YKtSpnK6ohRc4DLDA)
+1. Fill out [this form](https://forms.gle/vRmirHdUuhCj5pg76)
 2. Join the Google Meet call we'll share near the end of the event
 
 We're using a shared call to make presentations smooth and avoid switching between computers.
