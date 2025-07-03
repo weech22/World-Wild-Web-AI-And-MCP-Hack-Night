@@ -11,14 +11,16 @@ import {
   type ToolSet,
 } from "ai";
 //import { openai } from "@ai-sdk/openai";
-import {anthropic} from "@ai-sdk/anthropic";
+//import {anthropic} from "@ai-sdk/anthropic";
+import {google} from "@ai-sdk/google";
 import { processToolCalls } from "./utils";
 import { tools, executions } from "./tools";
 // import { env } from "cloudflare:workers";
 import { fiberplane, withInstrumentation } from "@fiberplane/agents";
 
 //const model = openai("gpt-4o-2024-11-20");
-const model = anthropic("claude-3-5-sonnet-latest");
+//const model = anthropic("claude-3-5-sonnet-latest");
+const model = google("gemini-2.5-pro");
 // Cloudflare AI Gateway
 // const openai = createOpenAI({
 //   apiKey: env.OPENAI_API_KEY,
@@ -114,15 +116,15 @@ export default {
     async (request: Request, env: Env, ctx: ExecutionContext) => {
       const url = new URL(request.url);
 
-      if (url.pathname === "/check-open-ai-key") {
-        const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+      if (url.pathname === "/check-google-ai-key") {
+        const hasGoogleAIKey = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
         return Response.json({
-          success: hasOpenAIKey,
+          success: hasGoogleAIKey,
         });
       }
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
         console.error(
-          "OPENAI_API_KEY is not set, don't forget to set it locally in .dev.vars, and use `wrangler secret bulk .dev.vars` to upload it to production"
+          "GOOGLE_GENERATIVE_AI_API_KEY is not set, don't forget to set it locally in .dev.vars, and use `wrangler secret bulk .dev.vars` to upload it to production"
         );
       }
       return (

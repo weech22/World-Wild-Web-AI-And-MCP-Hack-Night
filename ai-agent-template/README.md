@@ -14,14 +14,15 @@ You can find the tool in the [src/tools.ts](/src/tools.ts) file.
 
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [pnpm](https://pnpm.io/) package manager  (or the one of your choice npm, yarn, etc)
-- Anthropic API key (get one from [Anthropic](https://console.anthropic.com/), or use one that we will provide during the Hack Night.)
+- Google Generative AI API key (get one from [Google AI](https://aistudio.google.com/apikey),  The great news is that Google provides a generous free tier for its AI API keys, which will be more than sufficient for the duration of this Hacknight and for most prototyping need )
+- You can check out the different models from Google AI [here](https://ai.google.dev/gemini-api/docs/models)
 
 ## Quick Start
 
 1. Clone this repo
 2. Create a `.dev.vars` file in the root directory:
 ```
-ANTHROPIC_API_KEY=your-key-goes-here
+GOOGLE_GENERATIVE_AI_API_KEY=your-key-goes-here
 ```
 3. Install dependencies:
 ```bash
