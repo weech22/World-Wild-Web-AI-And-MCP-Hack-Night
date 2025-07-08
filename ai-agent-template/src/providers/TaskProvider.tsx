@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { MOCK_TASKS } from "@/constants/mockData";
 
 interface Task {
   id: string;
@@ -22,7 +23,7 @@ interface TaskContextType {
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
 
   const addTask = (taskData: Omit<Task, "id" | "createdAt">) => {
     const newTask: Task = {

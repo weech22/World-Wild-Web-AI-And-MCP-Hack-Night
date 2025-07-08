@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { MOCK_REFERENCES } from "@/constants/mockData";
 
 interface ReferenceItem {
   id: string;
   title: string;
   content: string;
+  details: string;
   type: "document" | "link" | "note";
   createdAt: Date;
 }
@@ -11,17 +13,21 @@ interface ReferenceItem {
 interface ReferenceContextType {
   referenceItems: ReferenceItem[];
   selectedItem: ReferenceItem | null;
+  isDrawerOpen: boolean;
   addReference: (reference: Omit<ReferenceItem, "id" | "createdAt">) => void;
   updateReference: (id: string, updates: Partial<ReferenceItem>) => void;
   deleteReference: (id: string) => void;
   selectReference: (item: ReferenceItem | null) => void;
+  openDrawer: (item: ReferenceItem) => void;
+  closeDrawer: () => void;
 }
 
 const ReferenceContext = createContext<ReferenceContextType | undefined>(undefined);
 
 export function ReferenceProvider({ children }: { children: ReactNode }) {
-  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>([]);
+  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>(MOCK_REFERENCES);
   const [selectedItem, setSelectedItem] = useState<ReferenceItem | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const addReference = (referenceData: Omit<ReferenceItem, "id" | "createdAt">) => {
     const newReference: ReferenceItem = {
@@ -49,13 +55,26 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
     setSelectedItem(item);
   };
 
+  const openDrawer = (item: ReferenceItem) => {
+    setSelectedItem(item);
+    setIsDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+    setSelectedItem(null);
+  };
+
   const value: ReferenceContextType = {
     referenceItems,
     selectedItem,
+    isDrawerOpen,
     addReference,
     updateReference,
     deleteReference,
     selectReference,
+    openDrawer,
+    closeDrawer,
   };
 
   return (

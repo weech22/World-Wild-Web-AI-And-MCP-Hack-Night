@@ -1,28 +1,46 @@
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
-import { FileText, Plus } from "@phosphor-icons/react";
+import { useReference } from "@/providers/ReferenceProvider";
+import { FileText, Plus, Link, StickyNote } from "@phosphor-icons/react";
 
-interface ReferenceItem {
-  id: string;
-  title: string;
-  content: string;
-  type: "document" | "link" | "note";
-  createdAt: Date;
-}
+export function LeftPanel() {
+  const { referenceItems, openDrawer, addReference } = useReference();
 
-interface LeftPanelProps {
-  referenceItems: ReferenceItem[];
-  selectedItem: ReferenceItem | null;
-  onSelectItem: (item: ReferenceItem) => void;
-  onAddReference: () => void;
-}
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "document":
+        return <FileText size={16} />;
+      case "link":
+        return <Link size={16} />;
+      case "note":
+        return <StickyNote size={16} />;
+      default:
+        return <FileText size={16} />;
+    }
+  };
 
-export function LeftPanel({ 
-  referenceItems, 
-  selectedItem, 
-  onSelectItem, 
-  onAddReference 
-}: LeftPanelProps) {
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "document":
+        return "text-blue-600";
+      case "link":
+        return "text-green-600";
+      case "note":
+        return "text-yellow-600";
+      default:
+        return "text-neutral-600";
+    }
+  };
+
+  const handleAddReference = () => {
+    // For now, just create a simple reference
+    addReference({
+      title: "New Reference",
+      content: "Click to edit this reference",
+      details: "<p>Click to edit this reference content...</p>",
+      type: "document"
+    });
+  };
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900">
       <div className="p-4 border-b border-neutral-300 dark:border-neutral-800">
@@ -31,7 +49,7 @@ export function LeftPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onAddReference}
+            onClick={handleAddReference}
             className="h-8 w-8 p-0"
           >
             <Plus size={16} />
@@ -52,17 +70,20 @@ export function LeftPanel({
           referenceItems.map((item) => (
             <Card
               key={item.id}
-              className={`p-3 cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
-                selectedItem?.id === item.id 
-                  ? 'bg-neutral-200 dark:bg-neutral-700 border-neutral-400 dark:border-neutral-600' 
-                  : 'bg-white dark:bg-neutral-800'
-              }`}
-              onClick={() => onSelectItem(item)}
+              className="p-3 cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white dark:bg-neutral-800"
+              onClick={() => openDrawer(item)}
             >
               <div className="flex items-start gap-2">
-                <FileText size={16} className="mt-0.5 text-neutral-500" />
+                <div className={`mt-0.5 ${getTypeColor(item.type)}`}>
+                  {getTypeIcon(item.type)}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-sm truncate">{item.title}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-medium text-sm truncate">{item.title}</h3>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${getTypeColor(item.type)} bg-opacity-10`}>
+                      {item.type}
+                    </span>
+                  </div>
                   <p className="text-xs text-neutral-500 mt-1 line-clamp-2">
                     {item.content}
                   </p>

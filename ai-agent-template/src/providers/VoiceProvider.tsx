@@ -144,7 +144,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
       
-      recognitionRef.current.onresult = (event) => {
+      recognitionRef.current.onresult = async (event) => {
         const results = Array.from(event.results);
         const latestResult = results[results.length - 1];
         
@@ -158,6 +158,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             isComplete: latestResult.isFinal
           };
           
+          // Update local state
           setTranscripts(prev => {
             const existing = prev.find(t => t.participantId === localParticipant.id && !t.isComplete);
             if (existing && !latestResult.isFinal) {
@@ -165,32 +166,65 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             }
             return [...prev, transcript];
           });
+          
+          // Send transcript to server
+          if (latestResult.isFinal) {
+            try {
+              await fetch('/api/voice/transcript', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  participantId: localParticipant.id,
+                  participantName: localParticipant.name,
+                  text: latestResult[0].transcript,
+                  isComplete: true
+                })
+              });
+            } catch (error) {
+              console.error('Failed to send transcript:', error);
+            }
+          }
         }
       };
     }
   }, [localParticipant]);
 
-  // LocalStorage-based peer discovery
-  const updatePeerList = (participant: VoiceParticipant) => {
-    const peers = JSON.parse(localStorage.getItem('voice-peers') || '{}');
-    peers[participant.id] = {
-      ...participant,
-      lastSeen: Date.now()
-    };
-    localStorage.setItem('voice-peers', JSON.stringify(peers));
+  // Server-based peer discovery
+  const updatePeerList = async (participant: VoiceParticipant) => {
+    try {
+      await fetch('/api/voice/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId: participant.id })
+      });
+    } catch (error) {
+      console.error('Failed to update peer list:', error);
+    }
   };
 
-  const getPeerList = (): VoiceParticipant[] => {
-    const peers = JSON.parse(localStorage.getItem('voice-peers') || '{}');
-    const cutoff = Date.now() - 10000; // 10 seconds timeout
-    
-    return Object.values(peers).filter((peer: any) => peer.lastSeen > cutoff);
+  const getPeerList = async (): Promise<VoiceParticipant[]> => {
+    try {
+      const response = await fetch('/api/voice/peers');
+      if (response.ok) {
+        const peers = await response.json();
+        return peers.filter((peer: any) => peer.id !== localParticipant?.id);
+      }
+    } catch (error) {
+      console.error('Failed to get peer list:', error);
+    }
+    return [];
   };
 
-  const removePeer = (participantId: string) => {
-    const peers = JSON.parse(localStorage.getItem('voice-peers') || '{}');
-    delete peers[participantId];
-    localStorage.setItem('voice-peers', JSON.stringify(peers));
+  const removePeer = async (participantId: string) => {
+    try {
+      await fetch('/api/voice/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId })
+      });
+    } catch (error) {
+      console.error('Failed to remove peer:', error);
+    }
   };
 
   // Join voice room
@@ -225,8 +259,19 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       setLocalParticipant(participant);
       setRoomId(roomId);
       
-      // Add to peer list
-      updatePeerList(participant);
+      // Join room on server
+      const response = await fetch('/api/voice/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          participantId: participant.id, 
+          name: userName 
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to join room');
+      }
       
       // Start peer discovery
       startPeerDiscovery();
@@ -244,67 +289,99 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const startPeerDiscovery = () => {
     if (discoveryIntervalRef.current) return;
     
-    discoveryIntervalRef.current = setInterval(() => {
+    discoveryIntervalRef.current = setInterval(async () => {
       if (!localParticipant) return;
       
       // Update our presence
-      updatePeerList(localParticipant);
+      await updatePeerList(localParticipant);
       
       // Get current peer list
-      const peers = getPeerList();
-      const otherPeers = peers.filter(p => p.id !== localParticipant.id);
+      const peers = await getPeerList();
       
       // Update participants list
-      setParticipants(otherPeers);
+      setParticipants(peers);
       
       // Create connections to new peers
-      otherPeers.forEach(peer => {
+      peers.forEach(peer => {
         if (!peerConnectionsRef.current.has(peer.id)) {
           createPeerConnection(peer.id, peer.id > localParticipant.id);
         }
       });
       
-      // Check for offers and answers in localStorage
-      checkForSignalingMessages();
+      // Check for offers and answers from server
+      await checkForSignalingMessages();
+      
+      // Fetch shared transcripts from server
+      await fetchSharedTranscripts();
       
     }, 2000); // Check every 2 seconds
   };
 
-  // Check for signaling messages in localStorage
-  const checkForSignalingMessages = () => {
+  // Check for signaling messages from server
+  const checkForSignalingMessages = async () => {
     if (!localParticipant) return;
 
-    // Check for offers
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('offer-') && key.endsWith(`-${localParticipant.id}`)) {
-        const fromId = key.split('-')[1];
-        const offer = JSON.parse(localStorage.getItem(key) || '{}');
-        handleOffer(fromId, offer);
-        localStorage.removeItem(key);
-      }
-    });
-
-    // Check for answers
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('answer-') && key.endsWith(`-${localParticipant.id}`)) {
-        const fromId = key.split('-')[1];
-        const answer = JSON.parse(localStorage.getItem(key) || '{}');
-        handleAnswer(fromId, answer);
-        localStorage.removeItem(key);
-      }
-    });
-
-    // Check for ICE candidates
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('ice-') && key.endsWith(`-${localParticipant.id}`)) {
-        const fromId = key.split('-')[1];
-        const candidates = JSON.parse(localStorage.getItem(key) || '[]');
-        candidates.forEach((candidate: RTCIceCandidateInit) => {
-          handleIceCandidate(fromId, candidate);
+    try {
+      const response = await fetch(`/api/voice/signaling/${localParticipant.id}`);
+      if (response.ok) {
+        const signaling = await response.json();
+        
+        // Handle offers
+        signaling.offers?.forEach((item: any) => {
+          handleOffer(item.from, item.offer);
         });
-        localStorage.removeItem(key);
+        
+        // Handle answers
+        signaling.answers?.forEach((item: any) => {
+          handleAnswer(item.from, item.answer);
+        });
+        
+        // Handle ICE candidates
+        signaling.candidates?.forEach((item: any) => {
+          handleIceCandidate(item.from, item.candidate);
+        });
       }
-    });
+    } catch (error) {
+      console.error('Failed to check signaling messages:', error);
+    }
+  };
+
+  // Fetch shared transcripts from server
+  const fetchSharedTranscripts = async () => {
+    try {
+      const response = await fetch('/api/voice/transcripts');
+      if (response.ok) {
+        const serverTranscripts = await response.json();
+        
+        // Convert server timestamps back to Date objects
+        const processedTranscripts = serverTranscripts.map((transcript: any) => ({
+          ...transcript,
+          timestamp: new Date(transcript.timestamp)
+        }));
+        
+        // Merge with local transcripts, avoiding duplicates
+        setTranscripts(prev => {
+          const combined = [...prev];
+          
+          processedTranscripts.forEach((serverTranscript: any) => {
+            const exists = combined.find(t => 
+              t.participantId === serverTranscript.participantId && 
+              t.text === serverTranscript.text &&
+              t.isComplete === serverTranscript.isComplete
+            );
+            
+            if (!exists) {
+              combined.push(serverTranscript);
+            }
+          });
+          
+          // Sort by timestamp
+          return combined.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch shared transcripts:', error);
+    }
   };
   
   // Create peer connection
@@ -328,13 +405,22 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     };
     
     // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
+    peerConnection.onicecandidate = async (event) => {
       if (event.candidate && localParticipant) {
-        // Store ICE candidate in localStorage
-        const key = `ice-${localParticipant.id}-${participantId}`;
-        const candidates = JSON.parse(localStorage.getItem(key) || '[]');
-        candidates.push(event.candidate);
-        localStorage.setItem(key, JSON.stringify(candidates));
+        // Send ICE candidate to server
+        try {
+          await fetch('/api/voice/ice-candidate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: localParticipant.id,
+              to: participantId,
+              candidate: event.candidate
+            })
+          });
+        } catch (error) {
+          console.error('Failed to send ICE candidate:', error);
+        }
       }
     };
     
@@ -358,9 +444,16 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
       
-      // Store offer in localStorage
-      const key = `offer-${localParticipant.id}-${participantId}`;
-      localStorage.setItem(key, JSON.stringify(offer));
+      // Send offer to server
+      await fetch('/api/voice/offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: localParticipant.id,
+          to: participantId,
+          offer: offer
+        })
+      });
     } catch (error) {
       console.error('Error creating offer:', error);
     }
@@ -382,9 +475,16 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
       
-      // Store answer in localStorage
-      const key = `answer-${localParticipant.id}-${from}`;
-      localStorage.setItem(key, JSON.stringify(answer));
+      // Send answer to server
+      await fetch('/api/voice/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: localParticipant.id,
+          to: from,
+          answer: answer
+        })
+      });
     } catch (error) {
       console.error('Error handling offer:', error);
     }
@@ -424,14 +524,14 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   };
   
   // Leave room
-  const leaveRoom = () => {
+  const leaveRoom = async () => {
+    if (localParticipant) {
+      await removePeer(localParticipant.id);
+    }
     cleanup();
     setRoomId(null);
     setIsConnected(false);
     setParticipants([]);
-    if (localParticipant) {
-      removePeer(localParticipant.id);
-    }
     setLocalParticipant(null);
   };
   
