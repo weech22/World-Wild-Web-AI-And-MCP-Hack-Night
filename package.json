@@ -1,0 +1,5 @@
+{
+	"devDependencies": {
+		"vite-plugin-ngrok": "^1.1.2"
+	}
+}

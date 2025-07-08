@@ -144,7 +144,7 @@ function TaskCard({ task, onToggle, onAssign }: TaskCardProps) {
           <div className="flex items-center gap-3 mt-2">
             <div className="flex items-center gap-1">
               <User size={12} className="text-neutral-400" />
-              <Avatar username={task.assignedTo} size="xs" />
+              <Avatar username={task.assignedTo} size="sm" />
               <span className="text-xs text-neutral-500">{task.assignedTo}</span>
             </div>
             
