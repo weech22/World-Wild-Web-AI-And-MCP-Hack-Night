@@ -55,6 +55,19 @@ async function initDatabase() {
       table.timestamp('created_at').defaultTo(db.fn.now());
     });
   }
+
+  // Create messages table
+  const messagesExists = await db.schema.hasTable('messages');
+  if (!messagesExists) {
+    await db.schema.createTable('messages', (table) => {
+      table.increments('id').primary();
+      table.text('content').notNullable();
+      table.string('sender_id').notNullable();
+      table.string('sender_name').notNullable();
+      table.string('room_id').notNullable();
+      table.timestamp('created_at').defaultTo(db.fn.now());
+    });
+  }
 }
 
 // Room management
@@ -115,6 +128,11 @@ const taskTools = {
     })
   }
 };
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // API Routes - Notes CRUD
 app.get('/api/notes', async (req, res) => {
@@ -226,6 +244,57 @@ app.delete('/api/tasks/:id', async (req, res) => {
   }
 });
 
+// API Routes - Messages CRUD
+app.get('/api/messages', async (req, res) => {
+  try {
+    const { room_id } = req.query;
+    let query = db('messages').select('*').orderBy('created_at', 'asc');
+    
+    if (room_id) {
+      query = query.where('room_id', room_id);
+    }
+    
+    const messages = await query;
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/messages', async (req, res) => {
+  try {
+    const { content, sender_id, sender_name, room_id } = req.body;
+    const [id] = await db('messages').insert({ content, sender_id, sender_name, room_id });
+    const message = await db('messages').where('id', id).first();
+    
+    // Broadcast to room
+    io.to(room_id).emit('message_received', message);
+    
+    res.json(message);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/messages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const message = await db('messages').where('id', id).first();
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    await db('messages').where('id', id).delete();
+    
+    // Broadcast to room
+    io.to(message.room_id).emit('message_deleted', { id });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // WebSocket handlers
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -268,6 +337,11 @@ io.on('connection', (socket) => {
     db('tasks').select('*').orderBy('created_at', 'desc').then(tasks => {
       socket.emit('tasks_updated', tasks);
     });
+    
+    // Send current messages for the room
+    db('messages').select('*').where('room_id', roomId).orderBy('created_at', 'asc').then(messages => {
+      socket.emit('messages_updated', messages);
+    });
   });
   
   // Handle transcript chunks
@@ -303,6 +377,72 @@ io.on('connection', (socket) => {
       }
     }
   });
+});
+
+// AI processing endpoint
+app.post('/api/ai-process', async (req, res) => {
+  try {
+    const { roomId } = req.body;
+    
+    // Get chat messages for the room
+    const messages = await db('messages').select('*').where('room_id', roomId).orderBy('created_at', 'asc');
+    
+    // Get voice transcripts if available
+    const room = rooms.get(roomId);
+    const transcripts = room?.transcript || '';
+    
+    // Combine messages and transcripts
+    const chatHistory = messages.map(msg => `${msg.sender_name}: ${msg.content}`).join('\n');
+    const fullConversation = `CHAT MESSAGES:\n${chatHistory}\n\nVOICE TRANSCRIPTS:\n${transcripts}`;
+    
+    const result = await generateObject({
+      model,
+      system: SYSTEM_PROMPT,
+      prompt: `Process this conversation and extract actionable items:\n\n${fullConversation}`,
+      schema: z.object({
+        tasks: z.array(z.object({
+          name: z.string(),
+          details: z.string().optional(),
+          assignee: z.string().optional()
+        })).optional(),
+        notes: z.array(z.object({
+          title: z.string(),
+          content: z.string()
+        })).optional()
+      })
+    });
+    
+    // Create tasks from AI extraction
+    if (result.object.tasks) {
+      for (const task of result.object.tasks) {
+        await db('tasks').insert(task);
+      }
+      io.emit('tasks_updated', await db('tasks').select('*').orderBy('created_at', 'desc'));
+    }
+    
+    // Create notes from AI extraction
+    if (result.object.notes) {
+      for (const note of result.object.notes) {
+        await db('notes').insert(note);
+      }
+      io.emit('notes_updated', await db('notes').select('*').orderBy('created_at', 'desc'));
+    }
+    
+    // Clear processed transcript
+    if (room) {
+      room.transcript = '';
+    }
+    
+    res.json({ 
+      success: true, 
+      tasksCreated: result.object.tasks?.length || 0,
+      notesCreated: result.object.notes?.length || 0
+    });
+    
+  } catch (error) {
+    console.error('AI processing error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Process transcript with AI

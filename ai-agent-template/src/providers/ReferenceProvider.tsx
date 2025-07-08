@@ -15,11 +15,13 @@ interface ReferenceContextType {
   referenceItems: ReferenceItem[];
   selectedItem: ReferenceItem | null;
   isDrawerOpen: boolean;
+  isCreateMode: boolean;
   addReference: (reference: Omit<ReferenceItem, "id" | "createdAt">) => void;
   updateReference: (id: string, updates: Partial<ReferenceItem>) => void;
   deleteReference: (id: string) => void;
   selectReference: (item: ReferenceItem | null) => void;
   openDrawer: (item: ReferenceItem) => void;
+  openCreateDrawer: () => void;
   closeDrawer: () => void;
 }
 
@@ -29,11 +31,12 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>(MOCK_REFERENCES);
   const [selectedItem, setSelectedItem] = useState<ReferenceItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const { notes: backendNotes, isConnected } = useBackend();
+  const [isCreateMode, setIsCreateMode] = useState(false);
+  const { notes: backendNotes, isApiAvailable } = useBackend();
 
   // Use backend notes when available, fallback to mock data
   useEffect(() => {
-    if (isConnected && backendNotes && backendNotes.length > 0) {
+    if (isApiAvailable && backendNotes && backendNotes.length > 0) {
       // Transform backend notes to match our ReferenceItem interface
       const transformedNotes = backendNotes.map((note: any) => ({
         id: note.id.toString(),
@@ -45,7 +48,7 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
       }));
       setReferenceItems(transformedNotes);
     }
-  }, [backendNotes, isConnected]);
+  }, [backendNotes, isApiAvailable]);
 
   console.log('ReferenceProvider rendered:', { 
     referenceItemsCount: referenceItems.length, 
@@ -54,21 +57,33 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   });
 
   const addReference = async (referenceData: Omit<ReferenceItem, "id" | "createdAt">) => {
-    if (isConnected) {
-      try {
-        const response = await fetch('http://localhost:3001/api/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: referenceData.title,
-            content: referenceData.content
-          })
-        });
-        if (!response.ok) throw new Error('Failed to create note');
-      } catch (error) {
-        console.error('Error creating note:', error);
+    console.log('addReference called:', { referenceData, isApiAvailable });
+    
+    // Always try the API call first, regardless of health check status
+    try {
+      console.log('Attempting POST to /api/notes...');
+      const response = await fetch('http://localhost:3001/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: referenceData.title,
+          content: referenceData.content
+        })
+      });
+      
+      if (response.ok) {
+        const newNote = await response.json();
+        console.log('API call successful:', newNote);
+        // Note will be updated via Socket.IO or we can update local state
+        return;
+      } else {
+        console.error('API call failed with status:', response.status);
+        throw new Error(`Failed to create note: ${response.status}`);
       }
-    } else {
+    } catch (error) {
+      console.error('Error creating note via API:', error);
+      console.log('Falling back to local state...');
+      
       // Fallback to local state
       const newReference: ReferenceItem = {
         ...referenceData,
@@ -80,19 +95,23 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   };
 
   const updateReference = async (id: string, updates: Partial<ReferenceItem>) => {
-    if (isConnected) {
+    if (isApiAvailable) {
       try {
         const response = await fetch(`http://localhost:3001/api/notes/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: updates.title,
-            content: updates.content
+            content: updates.details || updates.content
           })
         });
         if (!response.ok) throw new Error('Failed to update note');
       } catch (error) {
         console.error('Error updating note:', error);
+        // Still update local state as fallback
+        setReferenceItems(prev => prev.map(item => 
+          item.id === id ? { ...item, ...updates } : item
+        ));
       }
     } else {
       // Fallback to local state
@@ -103,7 +122,7 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteReference = async (id: string) => {
-    if (isConnected) {
+    if (isApiAvailable) {
       try {
         const response = await fetch(`http://localhost:3001/api/notes/${id}`, {
           method: 'DELETE'
@@ -128,24 +147,36 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   const openDrawer = (item: ReferenceItem) => {
     console.log('openDrawer called with item:', item.title);
     setSelectedItem(item);
+    setIsCreateMode(false);
     setIsDrawerOpen(true);
     console.log('State should be updated to:', { isDrawerOpen: true, selectedItem: item.title });
+  };
+
+  const openCreateDrawer = () => {
+    console.log('openCreateDrawer called');
+    setSelectedItem(null);
+    setIsCreateMode(true);
+    setIsDrawerOpen(true);
+    console.log('State should be updated to:', { isDrawerOpen: true, isCreateMode: true });
   };
 
   const closeDrawer = () => {
     setIsDrawerOpen(false);
     setSelectedItem(null);
+    setIsCreateMode(false);
   };
 
   const value: ReferenceContextType = {
     referenceItems,
     selectedItem,
     isDrawerOpen,
+    isCreateMode,
     addReference,
     updateReference,
     deleteReference,
     selectReference,
     openDrawer,
+    openCreateDrawer,
     closeDrawer,
   };
 

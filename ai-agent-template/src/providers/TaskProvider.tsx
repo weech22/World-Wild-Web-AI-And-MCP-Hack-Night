@@ -25,11 +25,11 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export function TaskProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
-  const { tasks: backendTasks, isConnected } = useBackend();
+  const { tasks: backendTasks, isApiAvailable } = useBackend();
 
   // Use backend tasks when available, fallback to mock data
   useEffect(() => {
-    if (isConnected && backendTasks && backendTasks.length > 0) {
+    if (isApiAvailable && backendTasks && backendTasks.length > 0) {
       // Transform backend tasks to match our Task interface
       const transformedTasks = backendTasks.map((task: any) => ({
         id: task.id.toString(),
@@ -42,10 +42,10 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       }));
       setTasks(transformedTasks);
     }
-  }, [backendTasks, isConnected]);
+  }, [backendTasks, isApiAvailable]);
 
   const addTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
-    if (isConnected) {
+    if (isApiAvailable) {
       try {
         const response = await fetch('http://localhost:3001/api/tasks', {
           method: 'POST',
@@ -72,7 +72,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
-    if (isConnected) {
+    if (isApiAvailable) {
       try {
         const response = await fetch(`http://localhost:3001/api/tasks/${id}`, {
           method: 'PUT',
@@ -97,7 +97,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteTask = async (id: string) => {
-    if (isConnected) {
+    if (isApiAvailable) {
       try {
         const response = await fetch(`http://localhost:3001/api/tasks/${id}`, {
           method: 'DELETE'

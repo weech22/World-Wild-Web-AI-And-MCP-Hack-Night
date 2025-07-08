@@ -63,7 +63,7 @@ const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 export function VoiceProvider({ children }: { children: ReactNode }) {
   // Get backend context
-  const { joinRoom: joinBackendRoom, sendTranscript, participantCount, isConnected: isBackendConnected } = useBackend();
+  const { joinRoom: joinBackendRoom, sendTranscript, participantCount, isSocketConnected: isBackendConnected } = useBackend();
   
   // Connection state
   const [isConnected, setIsConnected] = useState(false);

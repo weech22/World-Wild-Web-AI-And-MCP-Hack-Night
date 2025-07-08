@@ -31,6 +31,8 @@ import {
   Trash,
   PaperPlaneTilt,
   Stop,
+  Sparkle,
+  ChatCircle,
 } from "@phosphor-icons/react";
 
 // List of tools that require human confirmation
@@ -46,6 +48,9 @@ export default function Chat() {
   });
   const [showDebug, setShowDebug] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState("auto");
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [showChatOnly, setShowChatOnly] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Use context providers for state management
@@ -169,6 +174,15 @@ export default function Chat() {
         </div>
 
         <div className="flex items-center gap-2 mr-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowChatOnly(!showChatOnly)}
+            className="flex items-center gap-1"
+          >
+            {showChatOnly ? <Sparkle size={16} /> : <ChatCircle size={16} />}
+            {showChatOnly ? "AI Mode" : "Chat Mode"}
+          </Button>
           <Bug size={16} />
           <Toggle
             toggled={showDebug}
@@ -200,7 +214,30 @@ export default function Chat() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-        {agentMessages.length === 0 && (
+        {showChatOnly && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center gap-2">
+              <ChatCircle size={16} className="text-blue-600 dark:text-blue-400" />
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Chat Mode: Messages will be saved but AI won't respond automatically.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // TODO: Implement AI processing
+                  console.log("Process with AI");
+                }}
+                className="ml-auto"
+              >
+                <Sparkle size={14} className="mr-1" />
+                Process with AI
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!showChatOnly && agentMessages.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <Card className="p-6 max-w-md mx-auto bg-neutral-100 dark:bg-neutral-900">
               <div className="text-center space-y-4">
@@ -216,7 +253,25 @@ export default function Chat() {
           </div>
         )}
 
-        {agentMessages.map((m: Message, index) => {
+        {/* Chat Messages */}
+        {showChatOnly && chatMessages.map((message, index) => (
+          <div key={message.id} className="flex justify-start">
+            <div className="flex gap-2 max-w-[85%]">
+              <Avatar username={message.sender_name} />
+              <div>
+                <Card className="p-3 rounded-md bg-neutral-100 dark:bg-neutral-900 rounded-bl-none">
+                  <p className="text-sm">{message.content}</p>
+                </Card>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatTime(new Date(message.created_at))}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* AI Messages */}
+        {!showChatOnly && agentMessages.map((m: Message, index) => {
           const isUser = m.role === "user";
           const showAvatar =
             index === 0 || agentMessages[index - 1]?.role !== m.role;
@@ -309,14 +364,27 @@ export default function Chat() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          handleAgentSubmit(e, {
-            data: {
-              annotations: {
-                hello: "world",
+          if (showChatOnly) {
+            // Handle chat message submission
+            const message = chatInput.trim();
+            if (message) {
+              // TODO: Send chat message to backend
+              console.log("Sending chat message:", message);
+              setChatInput("");
+              setTextareaHeight("auto");
+            }
+          } else {
+            // Handle AI submission
+            handleAgentSubmit(e, {
+              data: {
+                annotations: {
+                  hello: "world",
+                },
               },
-            },
-          });
-          setTextareaHeight("auto");
+            });
+            // Don't reset textarea height immediately to prevent focus loss
+            setTimeout(() => setTextareaHeight("auto"), 100);
+          }
         }}
         className="p-3 bg-neutral-50 border-t border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900"
       >
@@ -327,15 +395,22 @@ export default function Chat() {
               placeholder={
                 pendingToolCallConfirmation
                   ? "Please respond to the tool confirmation above..."
+                  : showChatOnly
+                  ? "Type your message..."
                   : "Chat with your team and AI..."
               }
               className="flex w-full border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-base ring-offset-background placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base pb-10 dark:bg-neutral-900"
-              value={agentInput}
+              value={showChatOnly ? chatInput : agentInput}
               onChange={(e) => {
-                handleAgentInputChange(e);
+                if (showChatOnly) {
+                  setChatInput(e.target.value);
+                } else {
+                  handleAgentInputChange(e);
+                }
+                const newHeight = e.target.scrollHeight;
                 e.target.style.height = "auto";
-                e.target.style.height = `${e.target.scrollHeight}px`;
-                setTextareaHeight(`${e.target.scrollHeight}px`);
+                e.target.style.height = `${newHeight}px`;
+                setTextareaHeight(`${newHeight}px`);
               }}
               onKeyDown={(e) => {
                 if (
@@ -344,15 +419,18 @@ export default function Chat() {
                   !e.nativeEvent.isComposing
                 ) {
                   e.preventDefault();
-                  handleAgentSubmit(e as unknown as React.FormEvent);
-                  setTextareaHeight("auto");
+                  const form = e.target.closest('form');
+                  if (form) {
+                    const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    form.dispatchEvent(submitEvent);
+                  }
                 }
               }}
               rows={2}
               style={{ height: textareaHeight }}
             />
             <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-              {isLoading ? (
+              {!showChatOnly && isLoading ? (
                 <button
                   type="button"
                   onClick={stop}
@@ -365,7 +443,7 @@ export default function Chat() {
                 <button
                   type="submit"
                   className="inline-flex items-center cursor-pointer justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full p-1.5 h-fit border border-neutral-200 dark:border-neutral-800"
-                  disabled={pendingToolCallConfirmation || !agentInput.trim()}
+                  disabled={pendingToolCallConfirmation || (showChatOnly ? !chatInput.trim() : !agentInput.trim())}
                   aria-label="Send message"
                 >
                   <PaperPlaneTilt size={16} />

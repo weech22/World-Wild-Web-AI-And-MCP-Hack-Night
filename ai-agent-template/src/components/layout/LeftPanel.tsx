@@ -1,11 +1,11 @@
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
 import { useReference } from "@/providers/ReferenceProvider";
-import { FileText, Plus, Link, Note } from "@phosphor-icons/react";
+import { Article, PlusCircle, Link, Note } from "@phosphor-icons/react";
 
 export function LeftPanel() {
   console.log("LeftPanel rendering...");
-  const { referenceItems, openDrawer, addReference } = useReference();
+  const { referenceItems, openDrawer, openCreateDrawer, addReference } = useReference();
   console.log("LeftPanel got context:", {
     referenceItemsCount: referenceItems.length,
     openDrawer: typeof openDrawer,
@@ -15,13 +15,13 @@ export function LeftPanel() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "document":
-        return <FileText size={16} />;
+        return <Article size={16} />;
       case "link":
         return <Link size={16} />;
       case "note":
         return <Note size={16} />;
       default:
-        return <FileText size={16} />;
+        return <Article size={16} />;
     }
   };
 
@@ -39,13 +39,8 @@ export function LeftPanel() {
   };
 
   const handleAddReference = () => {
-    // For now, just create a simple reference
-    addReference({
-      title: "New Reference",
-      content: "Click to edit this reference",
-      details: "<p>Click to edit this reference content...</p>",
-      type: "document",
-    });
+    // Open create drawer instead of directly creating reference
+    openCreateDrawer();
   };
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900">
@@ -58,20 +53,7 @@ export function LeftPanel() {
             onClick={handleAddReference}
             className="h-8 w-8 p-0"
           >
-            <Plus size={16} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              console.log("Test button clicked");
-              if (referenceItems.length > 0) {
-                openDrawer(referenceItems[0]);
-              }
-            }}
-            className="h-8 w-8 p-0 bg-red-500"
-          >
-            Teeeeeee
+            <PlusCircle size={16} />
           </Button>
         </div>
       </div>
@@ -79,7 +61,7 @@ export function LeftPanel() {
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {referenceItems.length === 0 ? (
           <div className="text-center py-8">
-            <FileText size={32} className="mx-auto mb-2 text-neutral-400" />
+            <Article size={32} className="mx-auto mb-2 text-neutral-400" />
             <p className="text-neutral-500 text-sm">
               No reference material yet
             </p>
@@ -92,7 +74,7 @@ export function LeftPanel() {
             <Card
               key={item.id}
               className="p-3 cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white dark:bg-neutral-800"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log("=== CLICK EVENT ===");

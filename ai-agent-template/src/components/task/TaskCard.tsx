@@ -71,35 +71,40 @@ export function TaskCard({ task }: TaskCardProps) {
         </button>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className={`font-medium text-sm truncate ${
+        <div className="flex-1 min-w-0 space-y-2">
+          {/* Header - Title and Assignee */}
+          <div className="flex items-start justify-between gap-2">
+            <h3 className={`font-medium text-sm leading-5 ${
               task.completed ? 'line-through text-neutral-500' : 'text-neutral-900 dark:text-neutral-100'
             }`}>
               {task.title}
             </h3>
             
-            {/* Assignee Avatar */}
-            <Avatar username={task.assignedTo} size="xs" />
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-neutral-500 hidden sm:block">
+                {task.assignedTo}
+              </span>
+              <Avatar username={task.assignedTo} size="xs" />
+            </div>
           </div>
 
           {/* Description */}
           {task.description && (
-            <p className={`text-xs mb-3 line-clamp-2 ${
+            <p className={`text-xs leading-4 line-clamp-2 ${
               task.completed ? 'text-neutral-400' : 'text-neutral-600 dark:text-neutral-400'
             }`}>
               {task.description}
             </p>
           )}
 
-          {/* Footer */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          {/* Footer - Date and Status */}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Deadline */}
               {task.deadline && (
                 <div className={`flex items-center gap-1 text-xs ${getDeadlineColor()}`}>
                   <Calendar size={12} />
-                  <span>{formatDeadline(task.deadline)}</span>
+                  <span className="whitespace-nowrap">{formatDeadline(task.deadline)}</span>
                 </div>
               )}
               
@@ -112,8 +117,8 @@ export function TaskCard({ task }: TaskCardProps) {
               )}
             </div>
 
-            {/* Assignee name */}
-            <div className="text-xs text-neutral-500 truncate max-w-[100px]">
+            {/* Mobile assignee name */}
+            <div className="text-xs text-neutral-500 truncate max-w-[80px] sm:hidden">
               {task.assignedTo}
             </div>
           </div>

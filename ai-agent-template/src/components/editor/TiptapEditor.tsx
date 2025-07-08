@@ -30,7 +30,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
   }
 
   return (
-    <div className={`border border-neutral-300 dark:border-neutral-700 rounded-lg overflow-hidden ${className}`}>
+    <div className={`border border-neutral-300 dark:border-neutral-700 rounded-lg overflow-hidden flex flex-col ${className}`}>
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <Button
@@ -104,10 +104,15 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
       </div>
 
       {/* Editor */}
-      <EditorContent 
-        editor={editor}
-        className="prose prose-sm dark:prose-invert max-w-none p-4 min-h-[200px] focus:outline-none"
-      />
+      <div 
+        className="flex-1 overflow-y-auto cursor-text"
+        onClick={() => editor.commands.focus()}
+      >
+        <EditorContent 
+          editor={editor}
+          className="prose prose-sm dark:prose-invert max-w-none p-4 h-full focus:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:h-full [&_.ProseMirror]:cursor-text"
+        />
+      </div>
     </div>
   );
 }

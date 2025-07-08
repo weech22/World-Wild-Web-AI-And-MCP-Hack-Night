@@ -1,33 +1,62 @@
 import { useReference } from "@/providers/ReferenceProvider";
 import { Button } from "@/components/button/Button";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
-import { X, FileText, Link, Note } from "@phosphor-icons/react";
+import { X, Article, Link, Note } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 export function ReferenceDrawer() {
   console.log('ReferenceDrawer rendering...');
-  const { selectedItem, isDrawerOpen, closeDrawer, updateReference } = useReference();
+  const { selectedItem, isDrawerOpen, isCreateMode, closeDrawer, updateReference, addReference } = useReference();
   const [editedContent, setEditedContent] = useState("");
+  const [editedTitle, setEditedTitle] = useState("");
   
   console.log('ReferenceDrawer got context:', { 
     isDrawerOpen, 
+    isCreateMode,
     selectedItem: selectedItem?.title || 'none',
     closeDrawer: typeof closeDrawer
   });
 
   useEffect(() => {
-    console.log('ReferenceDrawer state changed:', { isDrawerOpen, selectedItem: selectedItem?.title });
-  }, [isDrawerOpen, selectedItem]);
+    console.log('ReferenceDrawer state changed:', { isDrawerOpen, isCreateMode, selectedItem: selectedItem?.title });
+  }, [isDrawerOpen, isCreateMode, selectedItem]);
 
   useEffect(() => {
-    if (selectedItem) {
+    if (isCreateMode) {
+      // Reset for create mode
+      setEditedTitle("");
+      setEditedContent("");
+    } else if (selectedItem) {
+      // Set for edit mode
+      setEditedTitle(selectedItem.title);
       setEditedContent(selectedItem.details);
     }
-  }, [selectedItem]);
+  }, [selectedItem, isCreateMode]);
 
   const handleSave = () => {
-    if (selectedItem) {
-      updateReference(selectedItem.id, { details: editedContent });
+    console.log('🔄 handleSave called:', { isCreateMode, editedTitle, editedContent });
+    
+    if (isCreateMode) {
+      // Create new reference
+      if (editedTitle.trim()) {
+        console.log('💾 Creating new reference...');
+        addReference({
+          title: editedTitle.trim(),
+          content: editedContent || "New reference content",
+          details: editedContent || "<p>New reference content</p>",
+          type: "note",
+        });
+        closeDrawer();
+      } else {
+        console.warn('⚠️ Cannot save: title is empty');
+      }
+    } else if (selectedItem) {
+      // Update existing reference
+      console.log('📝 Updating existing reference...');
+      updateReference(selectedItem.id, { 
+        title: editedTitle,
+        details: editedContent 
+      });
       closeDrawer();
     }
   };
@@ -35,13 +64,13 @@ export function ReferenceDrawer() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "document":
-        return <FileText size={16} />;
+        return <Article size={16} />;
       case "link":
         return <Link size={16} />;
       case "note":
         return <Note size={16} />;
       default:
-        return <FileText size={16} />;
+        return <Article size={16} />;
     }
   };
 
@@ -58,8 +87,8 @@ export function ReferenceDrawer() {
     }
   };
 
-  if (!isDrawerOpen || !selectedItem) {
-    console.log('ReferenceDrawer returning null:', { isDrawerOpen, hasSelectedItem: !!selectedItem });
+  if (!isDrawerOpen) {
+    console.log('ReferenceDrawer returning null:', { isDrawerOpen });
     return null;
   }
   
@@ -78,11 +107,13 @@ export function ReferenceDrawer() {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium ${getTypeColor(selectedItem.type)}`}>
-              {getTypeIcon(selectedItem.type)}
-              {selectedItem.type}
+            <div className={`flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium ${getTypeColor(isCreateMode ? "note" : selectedItem?.type || "note")}`}>
+              {getTypeIcon(isCreateMode ? "note" : selectedItem?.type || "note")}
+              {isCreateMode ? "note" : selectedItem?.type || "note"}
             </div>
-            <h2 className="text-lg font-semibold truncate">{selectedItem.title}</h2>
+            <h2 className="text-lg font-semibold truncate">
+              {isCreateMode ? "Create New Reference" : selectedItem?.title || "Reference"}
+            </h2>
           </div>
           <Button
             variant="ghost"
@@ -95,16 +126,31 @@ export function ReferenceDrawer() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="mb-4">
+        <div className="flex-1 overflow-hidden p-4 flex flex-col">
+          {isCreateMode && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                Title *
+              </label>
+              <input
+                type="text"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                placeholder="Enter reference title..."
+                className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+          )}
+          <div className="flex-1 flex flex-col">
             <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
               Content
             </label>
             <TiptapEditor
               content={editedContent}
               onUpdate={setEditedContent}
-              placeholder="Edit the reference content..."
-              className="w-full"
+              placeholder={isCreateMode ? "Enter reference content..." : "Edit the reference content..."}
+              className="w-full flex-1"
             />
           </div>
         </div>
@@ -112,14 +158,17 @@ export function ReferenceDrawer() {
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div className="text-xs text-neutral-500">
-            Created: {selectedItem.createdAt.toLocaleDateString()}
+            {isCreateMode ? "Creating new reference..." : selectedItem && `Created: ${selectedItem.createdAt.toLocaleDateString()}`}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={closeDrawer}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save Changes
+            <Button 
+              onClick={handleSave}
+              disabled={isCreateMode && !editedTitle.trim()}
+            >
+              {isCreateMode ? "Create Reference" : "Save Changes"}
             </Button>
           </div>
         </div>
