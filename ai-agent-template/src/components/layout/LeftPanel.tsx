@@ -4,7 +4,13 @@ import { useReference } from "@/providers/ReferenceProvider";
 import { FileText, Plus, Link, Note } from "@phosphor-icons/react";
 
 export function LeftPanel() {
+  console.log('LeftPanel rendering...');
   const { referenceItems, openDrawer, addReference } = useReference();
+  console.log('LeftPanel got context:', { 
+    referenceItemsCount: referenceItems.length, 
+    openDrawer: typeof openDrawer,
+    addReference: typeof addReference
+  });
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -54,6 +60,19 @@ export function LeftPanel() {
           >
             <Plus size={16} />
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              console.log('Test button clicked');
+              if (referenceItems.length > 0) {
+                openDrawer(referenceItems[0]);
+              }
+            }}
+            className="h-8 w-8 p-0 bg-red-500"
+          >
+            T
+          </Button>
         </div>
       </div>
       
@@ -71,7 +90,16 @@ export function LeftPanel() {
             <Card
               key={item.id}
               className="p-3 cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white dark:bg-neutral-800"
-              onClick={() => openDrawer(item)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('=== CLICK EVENT ===');
+                console.log('Clicked reference item:', item.title);
+                console.log('openDrawer function:', typeof openDrawer);
+                console.log('About to call openDrawer...');
+                openDrawer(item);
+                console.log('openDrawer called');
+              }}
             >
               <div className="flex items-start gap-2">
                 <div className={`mt-0.5 ${getTypeColor(item.type)}`}>

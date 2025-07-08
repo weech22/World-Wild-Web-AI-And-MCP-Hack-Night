@@ -5,8 +5,19 @@ import { X, FileText, Link, Note } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 export function ReferenceDrawer() {
+  console.log('ReferenceDrawer rendering...');
   const { selectedItem, isDrawerOpen, closeDrawer, updateReference } = useReference();
   const [editedContent, setEditedContent] = useState("");
+  
+  console.log('ReferenceDrawer got context:', { 
+    isDrawerOpen, 
+    selectedItem: selectedItem?.title || 'none',
+    closeDrawer: typeof closeDrawer
+  });
+
+  useEffect(() => {
+    console.log('ReferenceDrawer state changed:', { isDrawerOpen, selectedItem: selectedItem?.title });
+  }, [isDrawerOpen, selectedItem]);
 
   useEffect(() => {
     if (selectedItem) {
@@ -47,18 +58,23 @@ export function ReferenceDrawer() {
     }
   };
 
-  if (!isDrawerOpen || !selectedItem) return null;
+  if (!isDrawerOpen || !selectedItem) {
+    console.log('ReferenceDrawer returning null:', { isDrawerOpen, hasSelectedItem: !!selectedItem });
+    return null;
+  }
+  
+  console.log('ReferenceDrawer rendering drawer!');
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40"
+        className="fixed inset-0 bg-black/50 z-[9998]"
         onClick={closeDrawer}
       />
       
       {/* Drawer */}
-      <div className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-neutral-900 shadow-xl z-50 flex flex-col">
+      <div className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-neutral-900 shadow-xl z-[9999] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3">

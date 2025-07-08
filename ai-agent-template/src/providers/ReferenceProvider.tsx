@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { MOCK_REFERENCES } from "@/constants/mockData";
 
 interface ReferenceItem {
@@ -29,6 +29,12 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   const [selectedItem, setSelectedItem] = useState<ReferenceItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  console.log('ReferenceProvider rendered:', { 
+    referenceItemsCount: referenceItems.length, 
+    isDrawerOpen, 
+    selectedItem: selectedItem?.title || 'none' 
+  });
+
   const addReference = (referenceData: Omit<ReferenceItem, "id" | "createdAt">) => {
     const newReference: ReferenceItem = {
       ...referenceData,
@@ -56,8 +62,10 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   };
 
   const openDrawer = (item: ReferenceItem) => {
+    console.log('openDrawer called with item:', item.title);
     setSelectedItem(item);
     setIsDrawerOpen(true);
+    console.log('State should be updated to:', { isDrawerOpen: true, selectedItem: item.title });
   };
 
   const closeDrawer = () => {
@@ -87,7 +95,13 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
 export function useReference() {
   const context = useContext(ReferenceContext);
   if (!context) {
+    console.error("useReference called outside of ReferenceProvider!");
     throw new Error("useReference must be used within a ReferenceProvider");
   }
+  console.log('useReference called, context:', {
+    referenceItemsCount: context.referenceItems.length,
+    isDrawerOpen: context.isDrawerOpen,
+    selectedItem: context.selectedItem?.title || 'none'
+  });
   return context;
 }
