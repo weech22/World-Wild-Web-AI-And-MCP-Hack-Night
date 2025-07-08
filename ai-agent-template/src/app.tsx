@@ -381,23 +381,9 @@ export default function Chat() {
     <div className="h-[100vh] w-full bg-fixed overflow-hidden">
       <HasGoogleAIKey />
       <MainLayout
-        leftPanel={
-          <LeftPanel
-            referenceItems={referenceItems}
-            selectedItem={selectedItem}
-            onSelectItem={handleSelectReferenceItem}
-            onAddReference={handleAddReference}
-          />
-        }
+        leftPanel={<LeftPanel />}
         centerPanel={<ChatPanel />}
-        rightPanel={
-          <RightPanel
-            tasks={tasks}
-            onToggleTask={handleToggleTask}
-            onAddTask={handleAddTask}
-            onAssignTask={handleAssignTask}
-          />
-        }
+        rightPanel={<RightPanel />}
         voicePanel={
           <div className="h-full flex flex-col">
             <div className="flex-1">
