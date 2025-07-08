@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, use } from "react";
+import { useEffect, useState, useRef, useCallback, use, useMemo } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
 import type { Message } from "@ai-sdk/react";
@@ -52,6 +52,7 @@ export default function Chat() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [showChatOnly, setShowChatOnly] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Use context providers for state management
   const { tasks, toggleTask, assignTask, addTask } = useTask();
@@ -61,6 +62,17 @@ export default function Chat() {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  // Track if textarea should maintain focus
+  const shouldPreserveFocus = useRef(false);
+
+  // Focus preservation effect
+  useEffect(() => {
+    if (shouldPreserveFocus.current && textareaRef.current) {
+      textareaRef.current.focus();
+      shouldPreserveFocus.current = false;
+    }
+  });
 
   useEffect(() => {
     // Apply theme class on mount and when theme changes
@@ -147,8 +159,8 @@ export default function Chat() {
     assignTask(taskId, userId);
   };
 
-  // Create the chat panel component
-  const ChatPanel = () => (
+  // Create the chat panel component - function component instead of memoized JSX
+  const ChatPanel = useCallback(() => (
     <div className="h-full flex flex-col">
       <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10 bg-white dark:bg-neutral-900">
         <div className="flex items-center justify-center h-8 w-8">
@@ -382,8 +394,8 @@ export default function Chat() {
                 },
               },
             });
-            // Don't reset textarea height immediately to prevent focus loss
-            setTimeout(() => setTextareaHeight("auto"), 100);
+            // Reset textarea height immediately (removed setTimeout to prevent focus loss)
+            setTextareaHeight("auto");
           }
         }}
         className="p-3 bg-neutral-50 border-t border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900"
@@ -391,6 +403,7 @@ export default function Chat() {
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <Textarea
+              ref={textareaRef}
               disabled={pendingToolCallConfirmation}
               placeholder={
                 pendingToolCallConfirmation
@@ -402,6 +415,9 @@ export default function Chat() {
               className="flex w-full border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-base ring-offset-background placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base pb-10 dark:bg-neutral-900"
               value={showChatOnly ? chatInput : agentInput}
               onChange={(e) => {
+                // Mark that focus should be preserved
+                shouldPreserveFocus.current = true;
+                
                 if (showChatOnly) {
                   setChatInput(e.target.value);
                 } else {
@@ -454,14 +470,25 @@ export default function Chat() {
         </div>
       </form>
     </div>
-  );
+  ), [
+    showChatOnly,
+    chatInput,
+    agentInput,
+    agentMessages,
+    chatMessages,
+    pendingToolCallConfirmation,
+    isLoading,
+    textareaHeight,
+    showDebug,
+    theme
+  ]);
 
   return (
     <div className="h-[100vh] w-full bg-fixed overflow-hidden">
       <HasGoogleAIKey />
       <MainLayout
         leftPanel={<LeftPanel />}
-        centerPanel={<ChatPanel />}
+        centerPanel={ChatPanel()}
         rightPanel={<RightPanel />}
         voicePanel={
           <div className="h-full flex flex-col">

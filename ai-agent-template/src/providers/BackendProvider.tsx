@@ -26,6 +26,48 @@ export function BackendProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState([]);
   const [tasks, setTasks] = useState([]);
 
+  // Fetch initial notes from backend
+  const fetchInitialNotes = async () => {
+    try {
+      console.log('📝 Fetching initial notes from backend...');
+      const response = await fetch('http://localhost:3001/api/notes', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const initialNotes = await response.json();
+        console.log('✅ Initial notes fetched:', initialNotes);
+        setNotes(initialNotes);
+      } else {
+        console.log('❌ Failed to fetch initial notes:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching initial notes:', error);
+    }
+  };
+
+  // Fetch initial tasks from backend
+  const fetchInitialTasks = async () => {
+    try {
+      console.log('📋 Fetching initial tasks from backend...');
+      const response = await fetch('http://localhost:3001/api/tasks', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const initialTasks = await response.json();
+        console.log('✅ Initial tasks fetched:', initialTasks);
+        setTasks(initialTasks);
+      } else {
+        console.log('❌ Failed to fetch initial tasks:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching initial tasks:', error);
+    }
+  };
+
   // Check API health independently of Socket.IO
   const checkApiHealth = async () => {
     try {
@@ -42,6 +84,10 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         setIsApiAvailable(true);
         setApiStatus('available');
         console.log('✅ API health check: available', data);
+        
+        // Fetch initial data when API becomes available
+        await fetchInitialNotes();
+        await fetchInitialTasks();
       } else {
         setIsApiAvailable(false);
         setApiStatus('unavailable');
@@ -58,8 +104,8 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     // Check API health first
     checkApiHealth();
     
-    // Check API health periodically
-    const healthCheckInterval = setInterval(checkApiHealth, 30000); // Every 30 seconds
+    // Check API health periodically - DISABLED to prevent focus loss
+    // const healthCheckInterval = setInterval(checkApiHealth, 120000); // Every 2 minutes (reduced from 30 seconds to prevent focus loss)
 
     // Attempt Socket.IO connection with error handling
     let newSocket: Socket | null = null;
@@ -76,6 +122,9 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       newSocket.on('connect', () => {
         console.log('Socket.IO: Connected to backend');
         setIsSocketConnected(true);
+        // Fetch initial data when socket connects
+        fetchInitialNotes();
+        fetchInitialTasks();
       });
 
       newSocket.on('disconnect', (reason) => {
@@ -126,7 +175,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     }
 
     return () => {
-      clearInterval(healthCheckInterval);
+      // clearInterval(healthCheckInterval); // Disabled
       if (newSocket) {
         newSocket.close();
       }

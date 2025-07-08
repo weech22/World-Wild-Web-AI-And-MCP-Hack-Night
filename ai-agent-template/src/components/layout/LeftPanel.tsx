@@ -1,15 +1,16 @@
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
 import { useReference } from "@/providers/ReferenceProvider";
-import { Article, PlusCircle, Link, Note } from "@phosphor-icons/react";
+import { Article, PlusCircle, Link, Note, Trash } from "@phosphor-icons/react";
 
 export function LeftPanel() {
   console.log("LeftPanel rendering...");
-  const { referenceItems, openDrawer, openCreateDrawer, addReference } = useReference();
+  const { referenceItems, openDrawer, openCreateDrawer, addReference, deleteReference } = useReference();
   console.log("LeftPanel got context:", {
     referenceItemsCount: referenceItems.length,
     openDrawer: typeof openDrawer,
     addReference: typeof addReference,
+    deleteReference: typeof deleteReference,
   });
 
   const getTypeIcon = (type: string) => {
@@ -39,8 +40,19 @@ export function LeftPanel() {
   };
 
   const handleAddReference = () => {
+    console.log('➕ Plus button clicked - opening create drawer');
     // Open create drawer instead of directly creating reference
     openCreateDrawer();
+  };
+
+  const handleDeleteReference = (e: React.MouseEvent, referenceId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🗑️ Delete button clicked for reference:', referenceId);
+    
+    if (window.confirm('Are you sure you want to delete this reference?')) {
+      deleteReference(referenceId);
+    }
   };
   return (
     <div className="h-full flex flex-col bg-neutral-50 dark:bg-neutral-900">
@@ -73,7 +85,7 @@ export function LeftPanel() {
           referenceItems.map((item) => (
             <Card
               key={item.id}
-              className="p-3 cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white dark:bg-neutral-800"
+              className="p-3 cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white dark:bg-neutral-800 group"
               onClick={(e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -107,6 +119,14 @@ export function LeftPanel() {
                     {item.createdAt.toLocaleDateString()}
                   </p>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => handleDeleteReference(e, item.id)}
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  <Trash size={12} />
+                </Button>
               </div>
             </Card>
           ))

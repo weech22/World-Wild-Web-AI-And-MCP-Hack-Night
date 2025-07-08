@@ -46,7 +46,7 @@ export function ReferenceDrawer() {
           details: editedContent || "<p>New reference content</p>",
           type: "note",
         });
-        closeDrawer();
+        // closeDrawer is now handled in the provider
       } else {
         console.warn('⚠️ Cannot save: title is empty');
       }

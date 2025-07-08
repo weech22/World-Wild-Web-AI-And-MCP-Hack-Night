@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { MOCK_REFERENCES } from "@/constants/mockData";
 import { useBackend } from "@/providers/BackendProvider";
 
 interface ReferenceItem {
@@ -28,16 +27,15 @@ interface ReferenceContextType {
 const ReferenceContext = createContext<ReferenceContextType | undefined>(undefined);
 
 export function ReferenceProvider({ children }: { children: ReactNode }) {
-  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>(MOCK_REFERENCES);
+  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ReferenceItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCreateMode, setIsCreateMode] = useState(false);
   const { notes: backendNotes, isApiAvailable } = useBackend();
 
-  // Use backend notes when available, fallback to mock data
+  // Transform backend notes to match our ReferenceItem interface
   useEffect(() => {
-    if (isApiAvailable && backendNotes && backendNotes.length > 0) {
-      // Transform backend notes to match our ReferenceItem interface
+    if (backendNotes && backendNotes.length >= 0) {
       const transformedNotes = backendNotes.map((note: any) => ({
         id: note.id.toString(),
         title: note.title,
@@ -48,7 +46,7 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
       }));
       setReferenceItems(transformedNotes);
     }
-  }, [backendNotes, isApiAvailable]);
+  }, [backendNotes]);
 
   console.log('ReferenceProvider rendered:', { 
     referenceItemsCount: referenceItems.length, 
@@ -75,6 +73,7 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
         const newNote = await response.json();
         console.log('API call successful:', newNote);
         // Note will be updated via Socket.IO or we can update local state
+        closeDrawer();
         return;
       } else {
         console.error('API call failed with status:', response.status);
@@ -91,6 +90,7 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
         createdAt: new Date(),
       };
       setReferenceItems(prev => [...prev, newReference]);
+      closeDrawer();
     }
   };
 
@@ -122,21 +122,37 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteReference = async (id: string) => {
-    if (isApiAvailable) {
-      try {
-        const response = await fetch(`http://localhost:3001/api/notes/${id}`, {
-          method: 'DELETE'
-        });
-        if (!response.ok) throw new Error('Failed to delete note');
-      } catch (error) {
-        console.error('Error deleting note:', error);
+    console.log('🗑️ deleteReference called:', { id, isApiAvailable });
+    
+    // Always try the API call first, regardless of health check status
+    try {
+      console.log('Attempting DELETE to /api/notes/' + id);
+      const response = await fetch(`http://localhost:3001/api/notes/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        console.log('✅ Delete API call successful');
+        // Note will be updated via Socket.IO or we can update local state
+        if (selectedItem?.id === id) {
+          setSelectedItem(null);
+          closeDrawer();
+        }
+        return;
+      } else {
+        console.error('❌ Delete API call failed with status:', response.status);
+        throw new Error(`Failed to delete note: ${response.status}`);
       }
-    } else {
+    } catch (error) {
+      console.error('❌ Error deleting note via API:', error);
+      console.log('Falling back to local state...');
+      
       // Fallback to local state
       setReferenceItems(prev => prev.filter(item => item.id !== id));
-    }
-    if (selectedItem?.id === id) {
-      setSelectedItem(null);
+      if (selectedItem?.id === id) {
+        setSelectedItem(null);
+        closeDrawer();
+      }
     }
   };
 
@@ -161,6 +177,7 @@ export function ReferenceProvider({ children }: { children: ReactNode }) {
   };
 
   const closeDrawer = () => {
+    console.log('closeDrawer called - resetting all state');
     setIsDrawerOpen(false);
     setSelectedItem(null);
     setIsCreateMode(false);

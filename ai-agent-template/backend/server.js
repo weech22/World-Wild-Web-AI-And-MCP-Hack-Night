@@ -2,8 +2,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import knex from 'knex';
-import { SYSTEM_PROMPT } from '../constants.ts';
+// import knex from 'knex';
+import { SYSTEM_PROMPT } from './constants.js';
 import { google } from '@ai-sdk/google';
 import { generateId, generateObject } from 'ai';
 import { z } from 'zod';
@@ -17,57 +17,37 @@ const io = new Server(server, {
   }
 });
 
-// Database setup
-const db = knex({
-  client: 'sqlite3',
-  connection: {
-    filename: './dev.sqlite3'
-  },
-  useNullAsDefault: true
-});
+// In-memory database for now (simplified)
+let notes = [];
+let tasks = [];
+let messages = [];
+let nextNoteId = 1;
+let nextTaskId = 1;
+let nextMessageId = 1;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Initialize database tables
-async function initDatabase() {
-  // Create notes table
-  const notesExists = await db.schema.hasTable('notes');
-  if (!notesExists) {
-    await db.schema.createTable('notes', (table) => {
-      table.increments('id').primary();
-      table.string('title').notNullable();
-      table.text('content');
-      table.timestamp('created_at').defaultTo(db.fn.now());
-    });
-  }
-
-  // Create tasks table
-  const tasksExists = await db.schema.hasTable('tasks');
-  if (!tasksExists) {
-    await db.schema.createTable('tasks', (table) => {
-      table.increments('id').primary();
-      table.string('name').notNullable();
-      table.text('details');
-      table.string('assignee');
-      table.boolean('is_done').defaultTo(false);
-      table.timestamp('created_at').defaultTo(db.fn.now());
-    });
-  }
-
-  // Create messages table
-  const messagesExists = await db.schema.hasTable('messages');
-  if (!messagesExists) {
-    await db.schema.createTable('messages', (table) => {
-      table.increments('id').primary();
-      table.text('content').notNullable();
-      table.string('sender_id').notNullable();
-      table.string('sender_name').notNullable();
-      table.string('room_id').notNullable();
-      table.timestamp('created_at').defaultTo(db.fn.now());
-    });
-  }
+// Initialize in-memory data (no database setup needed)
+function initDatabase() {
+  console.log('Using in-memory storage for development');
+  // Add some sample data
+  notes.push({
+    id: nextNoteId++,
+    title: 'Welcome Note',
+    content: 'This is a sample note created by the backend.',
+    created_at: new Date().toISOString()
+  });
+  
+  tasks.push({
+    id: nextTaskId++,
+    name: 'Sample Task',
+    details: 'This is a sample task created by the backend.',
+    assignee: 'System',
+    is_done: false,
+    created_at: new Date().toISOString()
+  });
 }
 
 // Room management
@@ -135,23 +115,29 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes - Notes CRUD
-app.get('/api/notes', async (req, res) => {
+app.get('/api/notes', (req, res) => {
   try {
-    const notes = await db('notes').select('*').orderBy('created_at', 'desc');
-    res.json(notes);
+    const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(sortedNotes);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/notes', async (req, res) => {
+app.post('/api/notes', (req, res) => {
   try {
     const { title, content } = req.body;
-    const [id] = await db('notes').insert({ title, content });
-    const note = await db('notes').where('id', id).first();
+    const note = {
+      id: nextNoteId++,
+      title,
+      content,
+      created_at: new Date().toISOString()
+    };
+    notes.push(note);
     
     // Broadcast to all clients
-    io.emit('notes_updated', await db('notes').select('*').orderBy('created_at', 'desc'));
+    const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    io.emit('notes_updated', sortedNotes);
     
     res.json(note);
   } catch (error) {
@@ -159,29 +145,42 @@ app.post('/api/notes', async (req, res) => {
   }
 });
 
-app.put('/api/notes/:id', async (req, res) => {
+app.put('/api/notes/:id', (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    await db('notes').where('id', id).update(updates);
-    const note = await db('notes').where('id', id).first();
+    const noteIndex = notes.findIndex(n => n.id == id);
+    
+    if (noteIndex === -1) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    
+    notes[noteIndex] = { ...notes[noteIndex], ...updates };
     
     // Broadcast to all clients
-    io.emit('notes_updated', await db('notes').select('*').orderBy('created_at', 'desc'));
+    const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    io.emit('notes_updated', sortedNotes);
     
-    res.json(note);
+    res.json(notes[noteIndex]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.delete('/api/notes/:id', async (req, res) => {
+app.delete('/api/notes/:id', (req, res) => {
   try {
     const { id } = req.params;
-    await db('notes').where('id', id).delete();
+    const noteIndex = notes.findIndex(n => n.id == id);
+    
+    if (noteIndex === -1) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    
+    notes.splice(noteIndex, 1);
     
     // Broadcast to all clients
-    io.emit('notes_updated', await db('notes').select('*').orderBy('created_at', 'desc'));
+    const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    io.emit('notes_updated', sortedNotes);
     
     res.json({ success: true });
   } catch (error) {
@@ -190,23 +189,31 @@ app.delete('/api/notes/:id', async (req, res) => {
 });
 
 // API Routes - Tasks CRUD
-app.get('/api/tasks', async (req, res) => {
+app.get('/api/tasks', (req, res) => {
   try {
-    const tasks = await db('tasks').select('*').orderBy('created_at', 'desc');
-    res.json(tasks);
+    const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(sortedTasks);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/tasks', async (req, res) => {
+app.post('/api/tasks', (req, res) => {
   try {
     const { name, details, assignee } = req.body;
-    const [id] = await db('tasks').insert({ name, details, assignee });
-    const task = await db('tasks').where('id', id).first();
+    const task = {
+      id: nextTaskId++,
+      name,
+      details,
+      assignee,
+      is_done: false,
+      created_at: new Date().toISOString()
+    };
+    tasks.push(task);
     
     // Broadcast to all clients
-    io.emit('tasks_updated', await db('tasks').select('*').orderBy('created_at', 'desc'));
+    const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    io.emit('tasks_updated', sortedTasks);
     
     res.json(task);
   } catch (error) {
@@ -214,29 +221,42 @@ app.post('/api/tasks', async (req, res) => {
   }
 });
 
-app.put('/api/tasks/:id', async (req, res) => {
+app.put('/api/tasks/:id', (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    await db('tasks').where('id', id).update(updates);
-    const task = await db('tasks').where('id', id).first();
+    const taskIndex = tasks.findIndex(t => t.id == id);
+    
+    if (taskIndex === -1) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    tasks[taskIndex] = { ...tasks[taskIndex], ...updates };
     
     // Broadcast to all clients
-    io.emit('tasks_updated', await db('tasks').select('*').orderBy('created_at', 'desc'));
+    const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    io.emit('tasks_updated', sortedTasks);
     
-    res.json(task);
+    res.json(tasks[taskIndex]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.delete('/api/tasks/:id', async (req, res) => {
+app.delete('/api/tasks/:id', (req, res) => {
   try {
     const { id } = req.params;
-    await db('tasks').where('id', id).delete();
+    const taskIndex = tasks.findIndex(t => t.id == id);
+    
+    if (taskIndex === -1) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    tasks.splice(taskIndex, 1);
     
     // Broadcast to all clients
-    io.emit('tasks_updated', await db('tasks').select('*').orderBy('created_at', 'desc'));
+    const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    io.emit('tasks_updated', sortedTasks);
     
     res.json({ success: true });
   } catch (error) {
@@ -245,27 +265,34 @@ app.delete('/api/tasks/:id', async (req, res) => {
 });
 
 // API Routes - Messages CRUD
-app.get('/api/messages', async (req, res) => {
+app.get('/api/messages', (req, res) => {
   try {
     const { room_id } = req.query;
-    let query = db('messages').select('*').orderBy('created_at', 'asc');
+    let filteredMessages = messages;
     
     if (room_id) {
-      query = query.where('room_id', room_id);
+      filteredMessages = messages.filter(m => m.room_id === room_id);
     }
     
-    const messages = await query;
-    res.json(messages);
+    const sortedMessages = filteredMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    res.json(sortedMessages);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/messages', async (req, res) => {
+app.post('/api/messages', (req, res) => {
   try {
     const { content, sender_id, sender_name, room_id } = req.body;
-    const [id] = await db('messages').insert({ content, sender_id, sender_name, room_id });
-    const message = await db('messages').where('id', id).first();
+    const message = {
+      id: nextMessageId++,
+      content,
+      sender_id,
+      sender_name,
+      room_id,
+      created_at: new Date().toISOString()
+    };
+    messages.push(message);
     
     // Broadcast to room
     io.to(room_id).emit('message_received', message);
@@ -276,15 +303,17 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
-app.delete('/api/messages/:id', async (req, res) => {
+app.delete('/api/messages/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const message = await db('messages').where('id', id).first();
-    if (!message) {
+    const messageIndex = messages.findIndex(m => m.id == id);
+    
+    if (messageIndex === -1) {
       return res.status(404).json({ error: 'Message not found' });
     }
     
-    await db('messages').where('id', id).delete();
+    const message = messages[messageIndex];
+    messages.splice(messageIndex, 1);
     
     // Broadcast to room
     io.to(message.room_id).emit('message_deleted', { id });
@@ -330,18 +359,16 @@ io.on('connection', (socket) => {
     });
     
     // Send current notes and tasks
-    db('notes').select('*').orderBy('created_at', 'desc').then(notes => {
-      socket.emit('notes_updated', notes);
-    });
+    const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    socket.emit('notes_updated', sortedNotes);
     
-    db('tasks').select('*').orderBy('created_at', 'desc').then(tasks => {
-      socket.emit('tasks_updated', tasks);
-    });
+    const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    socket.emit('tasks_updated', sortedTasks);
     
     // Send current messages for the room
-    db('messages').select('*').where('room_id', roomId).orderBy('created_at', 'asc').then(messages => {
-      socket.emit('messages_updated', messages);
-    });
+    const roomMessages = messages.filter(m => m.room_id === roomId)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    socket.emit('messages_updated', roomMessages);
   });
   
   // Handle transcript chunks
@@ -385,14 +412,15 @@ app.post('/api/ai-process', async (req, res) => {
     const { roomId } = req.body;
     
     // Get chat messages for the room
-    const messages = await db('messages').select('*').where('room_id', roomId).orderBy('created_at', 'asc');
+    const roomMessages = messages.filter(m => m.room_id === roomId)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     
     // Get voice transcripts if available
     const room = rooms.get(roomId);
     const transcripts = room?.transcript || '';
     
     // Combine messages and transcripts
-    const chatHistory = messages.map(msg => `${msg.sender_name}: ${msg.content}`).join('\n');
+    const chatHistory = roomMessages.map(msg => `${msg.sender_name}: ${msg.content}`).join('\n');
     const fullConversation = `CHAT MESSAGES:\n${chatHistory}\n\nVOICE TRANSCRIPTS:\n${transcripts}`;
     
     const result = await generateObject({
@@ -415,17 +443,33 @@ app.post('/api/ai-process', async (req, res) => {
     // Create tasks from AI extraction
     if (result.object.tasks) {
       for (const task of result.object.tasks) {
-        await db('tasks').insert(task);
+        const newTask = {
+          id: nextTaskId++,
+          name: task.name,
+          details: task.details || '',
+          assignee: task.assignee || '',
+          is_done: false,
+          created_at: new Date().toISOString()
+        };
+        tasks.push(newTask);
       }
-      io.emit('tasks_updated', await db('tasks').select('*').orderBy('created_at', 'desc'));
+      const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      io.emit('tasks_updated', sortedTasks);
     }
     
     // Create notes from AI extraction
     if (result.object.notes) {
       for (const note of result.object.notes) {
-        await db('notes').insert(note);
+        const newNote = {
+          id: nextNoteId++,
+          title: note.title,
+          content: note.content,
+          created_at: new Date().toISOString()
+        };
+        notes.push(newNote);
       }
-      io.emit('notes_updated', await db('notes').select('*').orderBy('created_at', 'desc'));
+      const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      io.emit('notes_updated', sortedNotes);
     }
     
     // Clear processed transcript
@@ -468,17 +512,33 @@ async function processTranscriptWithAI(roomId, transcript) {
     // Create tasks from AI extraction
     if (result.object.tasks) {
       for (const task of result.object.tasks) {
-        await db('tasks').insert(task);
+        const newTask = {
+          id: nextTaskId++,
+          name: task.name,
+          details: task.details || '',
+          assignee: task.assignee || '',
+          is_done: false,
+          created_at: new Date().toISOString()
+        };
+        tasks.push(newTask);
       }
-      io.emit('tasks_updated', await db('tasks').select('*').orderBy('created_at', 'desc'));
+      const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      io.emit('tasks_updated', sortedTasks);
     }
     
     // Create notes from AI extraction
     if (result.object.notes) {
       for (const note of result.object.notes) {
-        await db('notes').insert(note);
+        const newNote = {
+          id: nextNoteId++,
+          title: note.title,
+          content: note.content,
+          created_at: new Date().toISOString()
+        };
+        notes.push(newNote);
       }
-      io.emit('notes_updated', await db('notes').select('*').orderBy('created_at', 'desc'));
+      const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      io.emit('notes_updated', sortedNotes);
     }
     
     // Clear processed transcript
@@ -492,8 +552,8 @@ async function processTranscriptWithAI(roomId, transcript) {
 // Start server
 const PORT = process.env.PORT || 3001;
 
-initDatabase().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Backend server running on port ${PORT}`);
-  });
+initDatabase();
+server.listen(PORT, () => {
+  console.log(`Backend server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/api/health`);
 });

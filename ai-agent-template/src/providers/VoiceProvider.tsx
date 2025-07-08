@@ -291,32 +291,33 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const startPeerDiscovery = () => {
     if (discoveryIntervalRef.current) return;
     
-    discoveryIntervalRef.current = setInterval(async () => {
-      if (!localParticipant) return;
+    // DISABLED peer discovery interval to prevent focus loss
+    // discoveryIntervalRef.current = setInterval(async () => {
+    //   if (!localParticipant) return;
       
-      // Update our presence
-      await updatePeerList(localParticipant);
+    //   // Update our presence
+    //   await updatePeerList(localParticipant);
       
-      // Get current peer list
-      const peers = await getPeerList();
+    //   // Get current peer list
+    //   const peers = await getPeerList();
       
-      // Update participants list
-      setParticipants(peers);
+    //   // Update participants list
+    //   setParticipants(peers);
       
-      // Create connections to new peers
-      peers.forEach(peer => {
-        if (!peerConnectionsRef.current.has(peer.id)) {
-          createPeerConnection(peer.id, peer.id > localParticipant.id);
-        }
-      });
+    //   // Create connections to new peers
+    //   peers.forEach(peer => {
+    //     if (!peerConnectionsRef.current.has(peer.id)) {
+    //       createPeerConnection(peer.id, peer.id > localParticipant.id);
+    //     }
+    //   });
       
-      // Check for offers and answers from server
-      await checkForSignalingMessages();
+    //   // Check for offers and answers from server
+    //   await checkForSignalingMessages();
       
-      // Fetch shared transcripts from server
-      await fetchSharedTranscripts();
+    //   // Fetch shared transcripts from server
+    //   await fetchSharedTranscripts();
       
-    }, 2000); // Check every 2 seconds
+    // }, 10000); // Check every 10 seconds (reduced from 2 seconds to prevent focus loss)
   };
 
   // Check for signaling messages from server
@@ -603,17 +604,17 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     setTranscripts([]);
   };
   
-  // Mock audio level animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setParticipants(prev => prev.map(p => ({
-        ...p,
-        audioLevel: p.name === "Alice (Mock)" ? Math.random() * 0.8 : p.audioLevel
-      })));
-    }, 1000);
+  // Mock audio level animation - DISABLED to prevent focus loss
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setParticipants(prev => prev.map(p => ({
+  //       ...p,
+  //       audioLevel: p.name === "Alice (Mock)" ? Math.random() * 0.8 : p.audioLevel
+  //     })));
+  //   }, 1000);
     
-    return () => clearInterval(interval);
-  }, []);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   // Cleanup on unmount
   useEffect(() => {
