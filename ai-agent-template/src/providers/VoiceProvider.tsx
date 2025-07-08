@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useRef, useEffect, ReactNode } from "react";
+import { useBackend } from "@/providers/BackendProvider";
 import "webrtc-adapter";
 
 // Voice participant interface
@@ -61,6 +62,9 @@ interface VoiceContextType {
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 export function VoiceProvider({ children }: { children: ReactNode }) {
+  // Get backend context
+  const { joinRoom: joinBackendRoom, sendTranscript, participantCount, isConnected: isBackendConnected } = useBackend();
+  
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -90,6 +94,22 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       isConnected: true
     }
   ]);
+
+  // Update participants count based on backend
+  useEffect(() => {
+    if (isBackendConnected && participantCount > 0) {
+      // Generate mock participants based on backend count
+      const mockParticipants = Array.from({ length: participantCount - 1 }, (_, i) => ({
+        id: `participant-${i + 1}`,
+        name: `User ${i + 1}`,
+        isMuted: Math.random() > 0.5,
+        isCurrentUser: false,
+        audioLevel: Math.random() * 0.5,
+        isConnected: true
+      }));
+      setParticipants(mockParticipants);
+    }
+  }, [participantCount, isBackendConnected]);
   const [localParticipant, setLocalParticipant] = useState<VoiceParticipant | null>(null);
   
   // Transcripts with mock data
@@ -167,19 +187,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             return [...prev, transcript];
           });
           
-          // Send transcript to server
-          if (latestResult.isFinal) {
+          // Send transcript to backend
+          if (latestResult.isFinal && isBackendConnected) {
             try {
-              await fetch('/api/voice/transcript', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  participantId: localParticipant.id,
-                  participantName: localParticipant.name,
-                  text: latestResult[0].transcript,
-                  isComplete: true
-                })
-              });
+              sendTranscript(latestResult[0].transcript, localParticipant.name);
             } catch (error) {
               console.error('Failed to send transcript:', error);
             }
@@ -259,18 +270,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       setLocalParticipant(participant);
       setRoomId(roomId);
       
-      // Join room on server
-      const response = await fetch('/api/voice/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          participantId: participant.id, 
-          name: userName 
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to join room');
+      // Join room on backend
+      if (isBackendConnected) {
+        joinBackendRoom(userName);
       }
       
       // Start peer discovery

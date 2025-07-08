@@ -4,12 +4,12 @@ import { useReference } from "@/providers/ReferenceProvider";
 import { FileText, Plus, Link, Note } from "@phosphor-icons/react";
 
 export function LeftPanel() {
-  console.log("LeftPanel rendering...");
+  console.log('LeftPanel rendering...');
   const { referenceItems, openDrawer, addReference } = useReference();
-  console.log("LeftPanel got context:", {
-    referenceItemsCount: referenceItems.length,
+  console.log('LeftPanel got context:', { 
+    referenceItemsCount: referenceItems.length, 
     openDrawer: typeof openDrawer,
-    addReference: typeof addReference,
+    addReference: typeof addReference
   });
 
   const getTypeIcon = (type: string) => {
@@ -44,7 +44,7 @@ export function LeftPanel() {
       title: "New Reference",
       content: "Click to edit this reference",
       details: "<p>Click to edit this reference content...</p>",
-      type: "document",
+      type: "document"
     });
   };
   return (
@@ -64,25 +64,23 @@ export function LeftPanel() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              console.log("Test button clicked");
+              console.log('Test button clicked');
               if (referenceItems.length > 0) {
                 openDrawer(referenceItems[0]);
               }
             }}
             className="h-8 w-8 p-0 bg-red-500"
           >
-            Teeeeeee
+            T
           </Button>
         </div>
       </div>
-
+      
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {referenceItems.length === 0 ? (
           <div className="text-center py-8">
             <FileText size={32} className="mx-auto mb-2 text-neutral-400" />
-            <p className="text-neutral-500 text-sm">
-              No reference material yet
-            </p>
+            <p className="text-neutral-500 text-sm">No reference material yet</p>
             <p className="text-neutral-400 text-xs mt-1">
               AI will populate this as you chat
             </p>
@@ -95,12 +93,12 @@ export function LeftPanel() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log("=== CLICK EVENT ===");
-                console.log("Clicked reference item:", item.title);
-                console.log("openDrawer function:", typeof openDrawer);
-                console.log("About to call openDrawer...");
+                console.log('=== CLICK EVENT ===');
+                console.log('Clicked reference item:', item.title);
+                console.log('openDrawer function:', typeof openDrawer);
+                console.log('About to call openDrawer...');
                 openDrawer(item);
-                console.log("openDrawer called");
+                console.log('openDrawer called');
               }}
             >
               <div className="flex items-start gap-2">
@@ -109,12 +107,8 @@ export function LeftPanel() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium text-sm truncate">
-                      {item.title}
-                    </h3>
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded ${getTypeColor(item.type)} bg-opacity-10`}
-                    >
+                    <h3 className="font-medium text-sm truncate">{item.title}</h3>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${getTypeColor(item.type)} bg-opacity-10`}>
                       {item.type}
                     </span>
                   </div>
