@@ -17,6 +17,7 @@ import { LeftPanel } from "@/components/layout/LeftPanel";
 import { RightPanel } from "@/components/layout/RightPanel";
 import { VoicePanel } from "@/components/voice/VoicePanel";
 import { TranscriptPanel } from "@/components/voice/TranscriptPanel";
+import { ReferenceDrawer } from "@/components/reference/ReferenceDrawer";
 import { useTask } from "@/providers/TaskProvider";
 import { useReference } from "@/providers/ReferenceProvider";
 import { useVoice } from "@/providers/VoiceProvider";
@@ -395,6 +396,7 @@ export default function Chat() {
           </div>
         }
       />
+      <ReferenceDrawer />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { Card } from "@/components/card/Card";
 import { Button } from "@/components/button/Button";
 import { useReference } from "@/providers/ReferenceProvider";
-import { FileText, Plus, Link, StickyNote } from "@phosphor-icons/react";
+import { FileText, Plus, Link, Note } from "@phosphor-icons/react";
 
 export function LeftPanel() {
   const { referenceItems, openDrawer, addReference } = useReference();
@@ -13,7 +13,7 @@ export function LeftPanel() {
       case "link":
         return <Link size={16} />;
       case "note":
-        return <StickyNote size={16} />;
+        return <Note size={16} />;
       default:
         return <FileText size={16} />;
     }

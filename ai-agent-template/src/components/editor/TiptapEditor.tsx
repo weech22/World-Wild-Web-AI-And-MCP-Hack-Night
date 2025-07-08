@@ -2,7 +2,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Button } from '@/components/button/Button';
-import { Bold, Italic, List, ListNumbers, Quote, Undo2, Redo2 } from '@phosphor-icons/react';
+import { TextB, TextItalic, ListBullets, ListNumbers, Quotes, ArrowCounterClockwise, ArrowClockwise } from '@phosphor-icons/react';
 
 interface TiptapEditorProps {
   content: string;
@@ -39,7 +39,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={`h-8 w-8 p-0 ${editor.isActive('bold') ? 'bg-neutral-200 dark:bg-neutral-700' : ''}`}
         >
-          <Bold size={16} />
+          <TextB size={16} />
         </Button>
         
         <Button
@@ -48,7 +48,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
           onClick={() => editor.chain().focus().toggleItalic().run()}
           className={`h-8 w-8 p-0 ${editor.isActive('italic') ? 'bg-neutral-200 dark:bg-neutral-700' : ''}`}
         >
-          <Italic size={16} />
+          <TextItalic size={16} />
         </Button>
         
         <div className="w-px h-6 bg-neutral-300 dark:bg-neutral-700 mx-1" />
@@ -59,7 +59,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={`h-8 w-8 p-0 ${editor.isActive('bulletList') ? 'bg-neutral-200 dark:bg-neutral-700' : ''}`}
         >
-          <List size={16} />
+          <ListBullets size={16} />
         </Button>
         
         <Button
@@ -77,7 +77,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           className={`h-8 w-8 p-0 ${editor.isActive('blockquote') ? 'bg-neutral-200 dark:bg-neutral-700' : ''}`}
         >
-          <Quote size={16} />
+          <Quotes size={16} />
         </Button>
         
         <div className="w-px h-6 bg-neutral-300 dark:bg-neutral-700 mx-1" />
@@ -89,7 +89,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
           disabled={!editor.can().undo()}
           className="h-8 w-8 p-0"
         >
-          <Undo2 size={16} />
+          <ArrowCounterClockwise size={16} />
         </Button>
         
         <Button
@@ -99,7 +99,7 @@ export function TiptapEditor({ content, onUpdate, placeholder = "Start typing...
           disabled={!editor.can().redo()}
           className="h-8 w-8 p-0"
         >
-          <Redo2 size={16} />
+          <ArrowClockwise size={16} />
         </Button>
       </div>
 

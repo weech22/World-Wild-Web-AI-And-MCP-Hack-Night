@@ -1,7 +1,7 @@
 import { useReference } from "@/providers/ReferenceProvider";
 import { Button } from "@/components/button/Button";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
-import { X, FileText, Link, StickyNote } from "@phosphor-icons/react";
+import { X, FileText, Link, Note } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 
 export function ReferenceDrawer() {
@@ -28,7 +28,7 @@ export function ReferenceDrawer() {
       case "link":
         return <Link size={16} />;
       case "note":
-        return <StickyNote size={16} />;
+        return <Note size={16} />;
       default:
         return <FileText size={16} />;
     }
