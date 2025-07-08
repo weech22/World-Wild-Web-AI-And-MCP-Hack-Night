@@ -12,6 +12,9 @@ import { Toggle } from "@/components/toggle/Toggle";
 import { Textarea } from "@/components/textarea/Textarea";
 import { MemoizedMarkdown } from "@/components/memoized-markdown";
 import { ToolInvocationCard } from "@/components/tool-invocation-card/ToolInvocationCard";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { LeftPanel } from "@/components/layout/LeftPanel";
+import { RightPanel } from "@/components/layout/RightPanel";
 
 // Icon imports
 import {
@@ -29,6 +32,24 @@ const toolsRequiringConfirmation: (keyof typeof tools)[] = [
   "getWeatherInformation",
 ];
 
+interface ReferenceItem {
+  id: string;
+  title: string;
+  content: string;
+  type: "document" | "link" | "note";
+  createdAt: Date;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  assignedTo: string;
+  deadline?: Date;
+  completed: boolean;
+  createdAt: Date;
+}
+
 export default function Chat() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     // Check localStorage first, default to dark if not found
@@ -38,6 +59,11 @@ export default function Chat() {
   const [showDebug, setShowDebug] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState("auto");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // State for reference materials and tasks
+  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>([]);
+  const [selectedReferenceItem, setSelectedReferenceItem] = useState<ReferenceItem | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -103,6 +129,33 @@ export default function Chat() {
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // Handler functions for panels
+  const handleAddReference = () => {
+    // TODO: Implement add reference functionality
+    console.log("Add reference clicked");
+  };
+
+  const handleSelectReferenceItem = (item: ReferenceItem) => {
+    setSelectedReferenceItem(item);
+  };
+
+  const handleAddTask = () => {
+    // TODO: Implement add task functionality
+    console.log("Add task clicked");
+  };
+
+  const handleToggleTask = (taskId: string) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  const handleAssignTask = (taskId: string, userId: string) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, assignedTo: userId } : task
+    ));
   };
 
   return (
