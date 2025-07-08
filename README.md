@@ -14,13 +14,13 @@ We recommend getting familiar with the challenge before the hacknight, as it wil
 This hacknight is all about exploration and creativity with AI agents and MCP servers! Build something that excites you - whether it's practical, experimental, or just fun.
 
 ### Core Components
-Your project will consist of two main parts:
+Your project will consist of two main parts (or at least one of them!):
 1. **An AI Agent**: A chat-based assistant with its own personality and purpose
 2. **Backend Services**: MCP server, agent tools and APIs that give your agent real-world capabilities
 
 ### What We Provide to Get Started:
 - A [template](/ai-agent-template/) based on the [Cloudflare Chat Agent Starter Kit](https://github.com/cloudflare/agents-starter) with:
-  - Built-in MCP Server connection tools
+  - Built-in MCP Server connection tools (the AI agent needs an MCP server with sse endpoint to connect)
   - Integration with the [Fiberplane AI agents playground](https://github.com/fiberplane/fiberplane/tree/main/packages/agents)
 - Access to Fiberplane's Codegen platform for generating:
   - MCP servers that run on Cloudflare
@@ -46,7 +46,7 @@ While you're free to build anything, here are some ideas for your themed AI agen
 - Smart Home orchestrator
 - Personal CRM
 
-### Fiberplane Codegen Project & Anthropic API Key
+### Fiberplane Codegen Project
 For access to the early pre-beta version of Fiberplane's Codegen project, please join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#codegen` channel. We will add you to the platform.
 
 

@@ -40,8 +40,8 @@ pnpm start
 Now you're ready to start hacking! Choose your path:
 
 1. Create a MCP server and add it to the agent
-   - use Fiberplane's codegen to create a MCP server (TODO)
-      -Join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#ldn-hacknight`. We will add you to the codegen platform.
+   - use Fiberplane's codegen to create a MCP server
+      -Join [Fiberplane's Discord](https://discord.gg/NarC9cf5vP) and share your GitHub handle in the `#codegen` channel. We will add you to the codegen platform.
       - start prompting your MCP server
    - add the MCP server to the agent by chatting with the agent and providing the URL of the MCP server
    - **Important:** Avoid MCP servers with authentication for now.
