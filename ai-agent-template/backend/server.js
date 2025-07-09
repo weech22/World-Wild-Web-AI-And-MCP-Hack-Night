@@ -21,9 +21,13 @@ const io = new Server(server, {
 let notes = [];
 let tasks = [];
 let messages = [];
+let transcripts = [];
+let aiExtractions = [];
 let nextNoteId = 1;
 let nextTaskId = 1;
 let nextMessageId = 1;
+let nextTranscriptId = 1;
+let nextExtractionId = 1;
 
 // Middleware
 app.use(cors());
@@ -264,6 +268,67 @@ app.delete('/api/tasks/:id', (req, res) => {
   }
 });
 
+// API Routes - Transcripts CRUD
+app.get('/api/transcripts', (req, res) => {
+  try {
+    const { room_id } = req.query;
+    let filteredTranscripts = transcripts;
+    
+    if (room_id) {
+      filteredTranscripts = transcripts.filter(t => t.room_id === room_id);
+    }
+    
+    const sortedTranscripts = filteredTranscripts.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    res.json(sortedTranscripts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/transcripts', (req, res) => {
+  try {
+    const { content, speaker_id, speaker_name, room_id, is_final } = req.body;
+    const transcript = {
+      id: nextTranscriptId++,
+      content,
+      speaker_id,
+      speaker_name,
+      room_id,
+      is_final: is_final || false,
+      created_at: new Date().toISOString()
+    };
+    transcripts.push(transcript);
+    
+    // Broadcast to room
+    io.to(room_id).emit('transcript_received', transcript);
+    
+    res.json(transcript);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/transcripts/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const transcriptIndex = transcripts.findIndex(t => t.id == id);
+    
+    if (transcriptIndex === -1) {
+      return res.status(404).json({ error: 'Transcript not found' });
+    }
+    
+    const transcript = transcripts[transcriptIndex];
+    transcripts.splice(transcriptIndex, 1);
+    
+    // Broadcast to room
+    io.to(transcript.room_id).emit('transcript_deleted', { id });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API Routes - Messages CRUD
 app.get('/api/messages', (req, res) => {
   try {
@@ -343,7 +408,7 @@ io.on('connection', (socket) => {
     }
     
     // Add participant
-    room.participants.set(socket.id, { userName, joinedAt: new Date() });
+    room.participants.set(socket.id, { id: socket.id, userName, joinedAt: new Date() });
     socket.join(roomId);
     
     // Send current state to the new participant
@@ -355,7 +420,7 @@ io.on('connection', (socket) => {
     // Broadcast to room about new participant
     socket.to(roomId).emit('participant-joined', {
       participantCount: room.participants.size,
-      newParticipant: { userName, joinedAt: new Date() }
+      newParticipant: { id: socket.id, userName, joinedAt: new Date() }
     });
     
     // Send current notes and tasks
@@ -392,9 +457,11 @@ io.on('connection', (socket) => {
     // Remove from all rooms
     for (const [roomId, room] of rooms.entries()) {
       if (room.participants.has(socket.id)) {
+        const participant = room.participants.get(socket.id);
         room.participants.delete(socket.id);
         socket.to(roomId).emit('participant-left', {
-          participantCount: room.participants.size
+          participantCount: room.participants.size,
+          leftParticipant: participant
         });
         
         // Clean up empty rooms
@@ -411,17 +478,36 @@ app.post('/api/ai-process', async (req, res) => {
   try {
     const { roomId } = req.body;
     
+    console.log('🤖 AI processing started for room:', roomId);
+    
     // Get chat messages for the room
     const roomMessages = messages.filter(m => m.room_id === roomId)
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     
-    // Get voice transcripts if available
-    const room = rooms.get(roomId);
-    const transcripts = room?.transcript || '';
+    // Get voice transcripts for the room
+    const roomTranscripts = transcripts.filter(t => t.room_id === roomId && t.is_final)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     
     // Combine messages and transcripts
     const chatHistory = roomMessages.map(msg => `${msg.sender_name}: ${msg.content}`).join('\n');
-    const fullConversation = `CHAT MESSAGES:\n${chatHistory}\n\nVOICE TRANSCRIPTS:\n${transcripts}`;
+    const transcriptHistory = roomTranscripts.map(t => `${t.speaker_name}: ${t.content}`).join('\n');
+    
+    const fullConversation = `CHAT MESSAGES:\n${chatHistory}\n\nVOICE TRANSCRIPTS:\n${transcriptHistory}`;
+    
+    console.log('📊 Processing data:', {
+      messagesCount: roomMessages.length,
+      transcriptsCount: roomTranscripts.length,
+      totalLength: fullConversation.length
+    });
+    
+    if (fullConversation.trim().length === 0) {
+      return res.json({ 
+        success: false, 
+        error: 'No messages or transcripts found to process',
+        tasksCreated: 0,
+        notesCreated: 0
+      });
+    }
     
     const result = await generateObject({
       model,
@@ -440,7 +526,10 @@ app.post('/api/ai-process', async (req, res) => {
       })
     });
     
+    console.log('🧠 AI extraction result:', result.object);
+    
     // Create tasks from AI extraction
+    const createdTasks = [];
     if (result.object.tasks) {
       for (const task of result.object.tasks) {
         const newTask = {
@@ -452,12 +541,14 @@ app.post('/api/ai-process', async (req, res) => {
           created_at: new Date().toISOString()
         };
         tasks.push(newTask);
+        createdTasks.push(newTask);
       }
       const sortedTasks = tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       io.emit('tasks_updated', sortedTasks);
     }
     
     // Create notes from AI extraction
+    const createdNotes = [];
     if (result.object.notes) {
       for (const note of result.object.notes) {
         const newNote = {
@@ -467,31 +558,54 @@ app.post('/api/ai-process', async (req, res) => {
           created_at: new Date().toISOString()
         };
         notes.push(newNote);
+        createdNotes.push(newNote);
       }
       const sortedNotes = notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       io.emit('notes_updated', sortedNotes);
     }
     
-    // Clear processed transcript
-    if (room) {
-      room.transcript = '';
-    }
+    // Store AI extraction record
+    const extraction = {
+      id: nextExtractionId++,
+      room_id: roomId,
+      messages_processed: roomMessages.length,
+      transcripts_processed: roomTranscripts.length,
+      tasks_created: createdTasks.length,
+      notes_created: createdNotes.length,
+      extraction_data: result.object,
+      created_at: new Date().toISOString()
+    };
+    aiExtractions.push(extraction);
+    
+    console.log('✅ AI processing completed:', {
+      tasksCreated: createdTasks.length,
+      notesCreated: createdNotes.length
+    });
     
     res.json({ 
       success: true, 
-      tasksCreated: result.object.tasks?.length || 0,
-      notesCreated: result.object.notes?.length || 0
+      tasksCreated: createdTasks.length,
+      notesCreated: createdNotes.length,
+      messagesProcessed: roomMessages.length,
+      transcriptsProcessed: roomTranscripts.length,
+      extraction
     });
     
   } catch (error) {
-    console.error('AI processing error:', error);
+    console.error('❌ AI processing error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Process transcript with AI
+// Process transcript with AI (legacy function - now uses main AI processing)
 async function processTranscriptWithAI(roomId, transcript) {
   try {
+    console.log('📝 Processing transcript with AI for room:', roomId);
+    
+    // This is now handled by the main AI processing endpoint
+    // which processes both messages and transcripts together
+    // This function is kept for backward compatibility
+    
     const result = await generateObject({
       model,
       system: SYSTEM_PROMPT,
@@ -542,7 +656,10 @@ async function processTranscriptWithAI(roomId, transcript) {
     }
     
     // Clear processed transcript
-    rooms.get(roomId).transcript = '';
+    const room = rooms.get(roomId);
+    if (room) {
+      room.transcript = '';
+    }
     
   } catch (error) {
     console.error('AI processing error:', error);

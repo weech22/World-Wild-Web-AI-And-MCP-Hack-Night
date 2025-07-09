@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { MOCK_TASKS } from "@/constants/mockData";
 import { useBackend } from "@/providers/BackendProvider";
 
 interface Task {
@@ -24,13 +23,12 @@ interface TaskContextType {
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const { tasks: backendTasks, isApiAvailable } = useBackend();
 
-  // Use backend tasks when available, fallback to mock data
+  // Transform backend tasks to match our Task interface
   useEffect(() => {
-    if (isApiAvailable && backendTasks && backendTasks.length > 0) {
-      // Transform backend tasks to match our Task interface
+    if (backendTasks && backendTasks.length >= 0) {
       const transformedTasks = backendTasks.map((task: any) => ({
         id: task.id.toString(),
         title: task.name,
@@ -42,25 +40,37 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       }));
       setTasks(transformedTasks);
     }
-  }, [backendTasks, isApiAvailable]);
+  }, [backendTasks]);
 
   const addTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
-    if (isApiAvailable) {
-      try {
-        const response = await fetch('http://localhost:3001/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: taskData.title,
-            details: taskData.description,
-            assignee: taskData.assignedTo !== "Unassigned" ? taskData.assignedTo : undefined
-          })
-        });
-        if (!response.ok) throw new Error('Failed to create task');
-      } catch (error) {
-        console.error('Error creating task:', error);
+    console.log('📋 addTask called:', { taskData, isApiAvailable });
+    
+    // Always try the API call first, regardless of health check status
+    try {
+      console.log('Attempting POST to /api/tasks...');
+      const response = await fetch('http://localhost:3001/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: taskData.title,
+          details: taskData.description,
+          assignee: taskData.assignedTo !== "Unassigned" ? taskData.assignedTo : undefined
+        })
+      });
+      
+      if (response.ok) {
+        const newTask = await response.json();
+        console.log('✅ Task creation API call successful:', newTask);
+        // Task will be updated via Socket.IO or we can update local state
+        return;
+      } else {
+        console.error('❌ Task creation API call failed with status:', response.status);
+        throw new Error(`Failed to create task: ${response.status}`);
       }
-    } else {
+    } catch (error) {
+      console.error('❌ Error creating task via API:', error);
+      console.log('Falling back to local state...');
+      
       // Fallback to local state
       const newTask: Task = {
         ...taskData,
@@ -72,23 +82,34 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
-    if (isApiAvailable) {
-      try {
-        const response = await fetch(`http://localhost:3001/api/tasks/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: updates.title,
-            details: updates.description,
-            assignee: updates.assignedTo !== "Unassigned" ? updates.assignedTo : undefined,
-            is_done: updates.completed
-          })
-        });
-        if (!response.ok) throw new Error('Failed to update task');
-      } catch (error) {
-        console.error('Error updating task:', error);
+    console.log('📝 updateTask called:', { id, updates, isApiAvailable });
+    
+    // Always try the API call first, regardless of health check status
+    try {
+      console.log('Attempting PUT to /api/tasks/' + id);
+      const response = await fetch(`http://localhost:3001/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: updates.title,
+          details: updates.description,
+          assignee: updates.assignedTo !== "Unassigned" ? updates.assignedTo : undefined,
+          is_done: updates.completed
+        })
+      });
+      
+      if (response.ok) {
+        console.log('✅ Task update API call successful');
+        // Task will be updated via Socket.IO or we can update local state
+        return;
+      } else {
+        console.error('❌ Task update API call failed with status:', response.status);
+        throw new Error(`Failed to update task: ${response.status}`);
       }
-    } else {
+    } catch (error) {
+      console.error('❌ Error updating task via API:', error);
+      console.log('Falling back to local state...');
+      
       // Fallback to local state
       setTasks(prev => prev.map(task => 
         task.id === id ? { ...task, ...updates } : task
@@ -97,16 +118,27 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteTask = async (id: string) => {
-    if (isApiAvailable) {
-      try {
-        const response = await fetch(`http://localhost:3001/api/tasks/${id}`, {
-          method: 'DELETE'
-        });
-        if (!response.ok) throw new Error('Failed to delete task');
-      } catch (error) {
-        console.error('Error deleting task:', error);
+    console.log('🗑️ deleteTask called:', { id, isApiAvailable });
+    
+    // Always try the API call first, regardless of health check status
+    try {
+      console.log('Attempting DELETE to /api/tasks/' + id);
+      const response = await fetch(`http://localhost:3001/api/tasks/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        console.log('✅ Task deletion API call successful');
+        // Task will be updated via Socket.IO or we can update local state
+        return;
+      } else {
+        console.error('❌ Task deletion API call failed with status:', response.status);
+        throw new Error(`Failed to delete task: ${response.status}`);
       }
-    } else {
+    } catch (error) {
+      console.error('❌ Error deleting task via API:', error);
+      console.log('Falling back to local state...');
+      
       // Fallback to local state
       setTasks(prev => prev.filter(task => task.id !== id));
     }

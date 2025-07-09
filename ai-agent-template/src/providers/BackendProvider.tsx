@@ -7,11 +7,21 @@ interface BackendContextType {
   isApiAvailable: boolean;
   roomId: string;
   participantCount: number;
+  participants: any[];
   joinRoom: (userName: string) => void;
   sendTranscript: (text: string, speakerId: string) => void;
+  sendMessage: (content: string, senderName: string) => void;
   notes: any[];
   tasks: any[];
+  messages: any[];
   apiStatus: 'checking' | 'available' | 'unavailable';
+  processWithAI: () => Promise<any>;
+  clearAllData: () => void;
+  addDemoUser: (user: any) => void;
+  addDemoTranscript: (transcript: any) => void;
+  addDemoMessage: (message: any) => void;
+  addDemoTask: (task: any) => void;
+  addDemoNote: (note: any) => void;
 }
 
 const BackendContext = createContext<BackendContextType | undefined>(undefined);
@@ -23,8 +33,10 @@ export function BackendProvider({ children }: { children: ReactNode }) {
   const [apiStatus, setApiStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
   const [roomId] = useState('hackathon-room');
   const [participantCount, setParticipantCount] = useState(0);
+  const [participants, setParticipants] = useState([]);
   const [notes, setNotes] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [messages, setMessages] = useState([]);
 
   // Fetch initial notes from backend
   const fetchInitialNotes = async () => {
@@ -68,6 +80,51 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Fetch initial messages from backend
+  const fetchInitialMessages = async () => {
+    try {
+      console.log('💬 Fetching initial messages from backend...');
+      const response = await fetch(`http://localhost:3001/api/messages?room_id=${roomId}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const initialMessages = await response.json();
+        console.log('✅ Initial messages fetched:', initialMessages);
+        setMessages(initialMessages);
+      } else {
+        console.log('❌ Failed to fetch initial messages:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching initial messages:', error);
+    }
+  };
+
+  // AI processing function
+  const processWithAI = async () => {
+    try {
+      console.log('🤖 Starting AI processing...');
+      const response = await fetch('http://localhost:3001/api/ai-process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ AI processing completed:', result);
+        return result;
+      } else {
+        console.error('❌ AI processing failed:', response.status);
+        throw new Error(`AI processing failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Error processing with AI:', error);
+      throw error;
+    }
+  };
+
   // Check API health independently of Socket.IO
   const checkApiHealth = async () => {
     try {
@@ -88,6 +145,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         // Fetch initial data when API becomes available
         await fetchInitialNotes();
         await fetchInitialTasks();
+        await fetchInitialMessages();
       } else {
         setIsApiAvailable(false);
         setApiStatus('unavailable');
@@ -125,6 +183,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         // Fetch initial data when socket connects
         fetchInitialNotes();
         fetchInitialTasks();
+        fetchInitialMessages();
       });
 
       newSocket.on('disconnect', (reason) => {
@@ -146,16 +205,25 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       newSocket.on('room-joined', (data) => {
         console.log('Room joined:', data);
         setParticipantCount(data.participantCount);
+        setParticipants(data.participants || []);
       });
 
       newSocket.on('participant-joined', (data) => {
         console.log('Participant joined:', data);
         setParticipantCount(data.participantCount);
+        // Add the new participant to the list
+        if (data.newParticipant) {
+          setParticipants(prev => [...prev, data.newParticipant]);
+        }
       });
 
       newSocket.on('participant-left', (data) => {
         console.log('Participant left:', data);
         setParticipantCount(data.participantCount);
+        // Remove the participant from the list
+        if (data.leftParticipant) {
+          setParticipants(prev => prev.filter(p => p.id !== data.leftParticipant.id));
+        }
       });
 
       newSocket.on('room-full', () => {
@@ -171,6 +239,16 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       newSocket.on('tasks_updated', (updatedTasks) => {
         console.log('Tasks updated:', updatedTasks);
         setTasks(updatedTasks);
+      });
+
+      newSocket.on('messages_updated', (updatedMessages) => {
+        console.log('Messages updated:', updatedMessages);
+        setMessages(updatedMessages);
+      });
+
+      newSocket.on('message_received', (message) => {
+        console.log('Message received:', message);
+        setMessages(prev => [...prev, message]);
       });
     }
 
@@ -194,17 +272,91 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const sendMessage = async (content: string, senderName: string) => {
+    try {
+      // Send message to backend database
+      const response = await fetch('http://localhost:3001/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          sender_id: crypto.randomUUID(),
+          sender_name: senderName,
+          room_id: roomId
+        })
+      });
+      
+      if (response.ok) {
+        const message = await response.json();
+        console.log('✅ Message sent to database:', message);
+      } else {
+        console.error('❌ Failed to send message:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+    }
+  };
+
+  const clearAllData = () => {
+    setNotes([]);
+    setTasks([]);
+    setMessages([]);
+    setParticipants([]);
+    setParticipantCount(0);
+  };
+
+  const addDemoUser = (user: any) => {
+    setParticipants(prev => {
+      // Check if user already exists to avoid duplicates
+      const existingUser = prev.find(p => p.id === user.id);
+      if (existingUser) {
+        console.log(`⚠️ User ${user.name} already exists, skipping`);
+        return prev;
+      }
+      console.log(`👤 Adding new user: ${user.name}`);
+      return [...prev, user];
+    });
+    setParticipantCount(prev => prev + 1);
+  };
+
+  const addDemoTranscript = (transcript: any) => {
+    // For demo purposes, we'll add transcripts to messages or handle them separately
+    console.log('Demo transcript:', transcript);
+  };
+
+  const addDemoMessage = (message: any) => {
+    setMessages(prev => [...prev, message]);
+  };
+
+  const addDemoTask = (task: any) => {
+    setTasks(prev => [...prev, task]);
+  };
+
+  const addDemoNote = (note: any) => {
+    setNotes(prev => [...prev, note]);
+  };
+
   const value: BackendContextType = {
     socket,
     isSocketConnected,
     isApiAvailable,
     roomId,
     participantCount,
+    participants,
     joinRoom,
     sendTranscript,
+    sendMessage,
     notes,
     tasks,
+    messages,
     apiStatus,
+    processWithAI,
+    clearAllData,
+    addDemoUser,
+    addDemoTranscript,
+    addDemoMessage,
+    addDemoTask,
+    addDemoNote,
   };
 
   return (

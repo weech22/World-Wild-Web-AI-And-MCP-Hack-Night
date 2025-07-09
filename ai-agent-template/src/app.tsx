@@ -18,9 +18,12 @@ import { RightPanel } from "@/components/layout/RightPanel";
 import { VoicePanel } from "@/components/voice/VoicePanel";
 import { TranscriptPanel } from "@/components/voice/TranscriptPanel";
 import { ReferenceDrawer } from "@/components/reference/ReferenceDrawer";
+import { UserNameModal } from "@/components/user/UserNameModal";
 import { useTask } from "@/providers/TaskProvider";
 import { useReference } from "@/providers/ReferenceProvider";
 import { useVoice } from "@/providers/VoiceProvider";
+import { useBackend } from "@/providers/BackendProvider";
+import { useDemoContext } from "@/providers/DemoProvider";
 
 // Icon imports
 import {
@@ -33,6 +36,8 @@ import {
   Stop,
   Sparkle,
   ChatCircle,
+  MagicWand,
+  X,
 } from "@phosphor-icons/react";
 
 // List of tools that require human confirmation
@@ -49,15 +54,217 @@ export default function Chat() {
   const [showDebug, setShowDebug] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState("auto");
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [showChatOnly, setShowChatOnly] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [showUserNameModal, setShowUserNameModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Use context providers for state management
   const { tasks, toggleTask, assignTask, addTask } = useTask();
   const { referenceItems, selectedItem, selectReference, addReference } = useReference();
-  const { transcripts, isConnected } = useVoice();
+  const { transcripts, isConnected, joinRoom, addDemoTranscript, clearTranscripts } = useVoice();
+  const { processWithAI, sendMessage, messages, clearAllData, addDemoUser, addDemoMessage, addDemoTask, addDemoNote } = useBackend();
+  const { state: demoState, startDemo, resetDemo } = useDemoContext();
+  
+  // AI processing state
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiResult, setAiResult] = useState<any>(null);
+
+  // Initialize user name from localStorage or show modal
+  useEffect(() => {
+    const savedUserName = localStorage.getItem('userName');
+    if (savedUserName) {
+      setUserName(savedUserName);
+      // Auto-join room with saved name
+      joinRoom('hackathon-room', savedUserName);
+    } else {
+      // Skip modal for demo - just set a default name
+      setUserName('Demo User');
+      localStorage.setItem('userName', 'Demo User');
+      joinRoom('hackathon-room', 'Demo User');
+    }
+  }, [joinRoom]);
+
+  // Demo state managed with local state and timers
+  const [demoMessages, setDemoMessages] = useState<any[]>([]);
+  const [demoTasks, setDemoTasks] = useState<any[]>([]);
+  const [demoNotes, setDemoNotes] = useState<any[]>([]);
+  const [demoUsers, setDemoUsers] = useState<any[]>([]);
+  const [demoTranscripts, setDemoTranscripts] = useState<any[]>([]);
+  const [demoPhase, setDemoPhase] = useState<string>('starting');
+  const [demoStarted, setDemoStarted] = useState(false);
+
+  // Initialize demo mode on app start - RUN ONCE ONLY
+  useEffect(() => {
+    if (!demoStarted) {
+      setDemoStarted(true);
+      startDemoSequence();
+    }
+  }, []); // Empty dependency array to run only once
+
+  const startDemoSequence = () => {
+    if (demoStarted && demoPhase !== 'starting') {
+      console.log('⚠️ Demo already started, skipping');
+      return;
+    }
+    
+    console.log('🚀 Starting demo sequence - THIS SHOULD ONLY RUN ONCE');
+    setDemoPhase('users_joining');
+
+    // Demo users - formatted for voice participants
+    const users = [
+      { id: '1', name: 'Jim', avatar: '👨‍💻', isMuted: false, isCurrentUser: false, audioLevel: 0, isConnected: true },
+      { id: '2', name: 'Tim', avatar: '👨‍💼', isMuted: false, isCurrentUser: false, audioLevel: 0, isConnected: true },
+      { id: '3', name: 'Kim', avatar: '👩‍🎨', isMuted: false, isCurrentUser: false, audioLevel: 0, isConnected: true }
+    ];
+
+    // Demo messages
+    const messages = [
+      { id: '1', sender_name: 'Jim', content: 'I\'ve drafted the project requirements document. Sharing it with the team now.' },
+      { id: '2', sender_name: 'Tim', content: 'Great! I\'ve uploaded the marketing timeline to our shared workspace.' },
+      { id: '3', sender_name: 'Kim', content: 'The design system is ready. All components are documented and ready for development.' },
+      { id: '4', sender_name: 'Jim', content: 'We should schedule user testing sessions for next week. I can coordinate that.' },
+      { id: '5', sender_name: 'Tim', content: 'Perfect! The landing page copy is ready for review. Let\'s finalize everything.' },
+      { id: '6', sender_name: 'Kim', content: 'This is coming together well! Let\'s use AI to help organize all our tasks and notes.' }
+    ];
+
+    // Demo tasks - with backend format
+    const tasks = [
+      { id: '1', name: 'Set up analytics tracking', details: 'Configure Google Analytics and custom event tracking for product launch monitoring', assignee: 'Tim', priority: 'high', is_done: false, created_at: new Date() },
+      { id: '2', name: 'Create user onboarding flow', details: 'Design and implement step-by-step user onboarding based on design mockups', assignee: 'Kim', priority: 'high', is_done: false, created_at: new Date() },
+      { id: '3', name: 'Prepare launch documentation', details: 'Create comprehensive user guides, API docs, and troubleshooting materials', assignee: 'Jim', priority: 'medium', is_done: false, created_at: new Date() },
+      { id: '4', name: 'Coordinate user testing', details: 'Schedule and conduct user testing sessions, collect feedback and iterate', assignee: 'Jim', priority: 'medium', is_done: false, created_at: new Date() },
+      { id: '5', name: 'Finalize marketing materials', details: 'Complete landing page copy, email campaigns, and promotional content', assignee: 'Tim', priority: 'medium', is_done: false, created_at: new Date() },
+      { id: '6', name: 'Development coordination', details: 'Ensure all design and marketing materials align with development timeline', assignee: 'Kim', priority: 'high', is_done: false, created_at: new Date() }
+    ];
+
+    // Demo notes
+    const notes = [
+      { id: '1', title: 'Product Launch Timeline', content: 'Key milestones: Design completion (Week 1), Development handoff (Week 2), User testing (Week 3), Marketing launch (Week 4). Critical path includes analytics setup and documentation.', type: 'document' },
+      { id: '2', title: 'User Onboarding Requirements', content: 'Step 1: Account setup, Step 2: Profile completion, Step 3: Feature tour, Step 4: First task creation. Include progress indicators and help tooltips.', type: 'note' },
+      { id: '3', title: 'Marketing Strategy Overview', content: 'Launch channels: Email campaign, social media, product hunt, blog post. Target metrics: 1000 signups in first week, 20% conversion rate. Budget: $5000 for paid ads.', type: 'document' },
+      { id: '4', title: 'Testing & Feedback Plan', content: 'User testing sessions: 3 rounds with 5 users each. Focus areas: onboarding flow, core features, mobile responsiveness. Collect quantitative and qualitative feedback.', type: 'note' }
+    ];
+
+    // Phase 1: Add users (0-15s)
+    users.forEach((user, index) => {
+      setTimeout(() => {
+        console.log(`👤 Adding user: ${user.name}`);
+        setDemoUsers(prev => [...prev, user]);
+        // Add to voice participants with proper format
+        addDemoUser({
+          id: user.id,
+          name: user.name,
+          userName: user.name,
+          isMuted: false,
+          isCurrentUser: false,
+          audioLevel: 0,
+          isConnected: true
+        });
+        // Add voice transcript
+        addDemoTranscript({
+          id: `transcript-${user.id}`,
+          participantId: user.id,
+          participantName: user.name,
+          text: `${user.name} joined the voice chat`,
+          timestamp: new Date(),
+          isComplete: true
+        });
+        // Add directly to messages as if they're joining
+        addDemoMessage({ 
+          id: `user-${user.id}`, 
+          sender_name: user.name, 
+          content: `${user.name} joined the chat`, 
+          timestamp: new Date() 
+        });
+      }, index * 3000); // 3 second intervals
+    });
+
+    // Phase 1.5: Add voice transcripts (12-30s)
+    const transcriptMessages = [
+      { userName: 'Jim', text: 'Hey team! I\'ve been thinking about our upcoming product launch. We need to start organizing everything.' },
+      { userName: 'Tim', text: 'Absolutely! I\'ve been working on the marketing materials. We should coordinate with development.' },
+      { userName: 'Kim', text: 'Great timing! I just finished the design mockups. We need to plan the user onboarding flow.' },
+      { userName: 'Jim', text: 'Perfect! We also need to set up analytics tracking and prepare documentation.' },
+      { userName: 'Tim', text: 'I can handle the analytics setup. Should we create a timeline for all these tasks?' },
+      { userName: 'Kim', text: 'Yes! And we need to coordinate testing phases and feedback collection.' }
+    ];
+
+    transcriptMessages.forEach((transcript, index) => {
+      setTimeout(() => {
+        console.log(`🎤 Adding transcript from: ${transcript.userName}`);
+        addDemoTranscript({
+          id: `transcript-msg-${index}`,
+          participantId: users.find(u => u.name === transcript.userName)?.id || '1',
+          participantName: transcript.userName,
+          text: transcript.text,
+          timestamp: new Date(),
+          isComplete: true
+        });
+      }, 12000 + index * 3000); // Start at 12s, 3 second intervals
+    });
+
+    // Phase 2: Add messages (35-65s)
+    messages.forEach((message, index) => {
+      setTimeout(() => {
+        console.log(`💬 Adding message from: ${message.sender_name}`);
+        const messageWithTimestamp = { ...message, timestamp: new Date() };
+        setDemoMessages(prev => [...prev, messageWithTimestamp]);
+        addDemoMessage(messageWithTimestamp);
+      }, 35000 + index * 5000); // Start at 35s, 5 second intervals
+    });
+
+    // Phase 3: AI processing (45s)
+    setTimeout(() => {
+      console.log('🤖 Starting AI processing');
+      setDemoPhase('ai_processing');
+      // Don't actually call AI - just simulate it
+      setTimeout(() => {
+        setAiResult({
+          success: true,
+          tasksCreated: 6,
+          notesCreated: 4,
+          messagesProcessed: 6,
+          transcriptsProcessed: 6
+        });
+      }, 2000);
+    }, 45000);
+
+    // Phase 4: Add tasks (50-80s)
+    tasks.forEach((task, index) => {
+      setTimeout(() => {
+        console.log(`📋 Adding task: ${task.name}`);
+        setDemoTasks(prev => [...prev, task]);
+        addDemoTask(task);
+      }, 50000 + index * 3000); // Start at 50s, 3 second intervals
+    });
+
+    // Phase 5: Add notes (55-75s)
+    notes.forEach((note, index) => {
+      setTimeout(() => {
+        console.log(`📝 Adding note: ${note.title}`);
+        setDemoNotes(prev => [...prev, note]);
+        addDemoNote(note);
+      }, 55000 + index * 5000); // Start at 55s, 5 second intervals
+    });
+
+    // Phase 6: Complete (90s)
+    setTimeout(() => {
+      console.log('✅ Demo sequence completed');
+      setDemoPhase('completed');
+    }, 90000);
+  };
+
+
+  // Handle user name submission
+  const handleUserNameSubmit = (name: string) => {
+    setUserName(name);
+    localStorage.setItem('userName', name);
+    setShowUserNameModal(false);
+    // Join room with the provided name
+    joinRoom('hackathon-room', name);
+  };
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -159,6 +366,29 @@ export default function Chat() {
     assignTask(taskId, userId);
   };
 
+  const handleProcessWithAI = async () => {
+    if (isProcessingAI) return;
+    
+    setIsProcessingAI(true);
+    setAiResult(null);
+    
+    try {
+      console.log('🤖 Starting AI processing...');
+      const result = await processWithAI();
+      setAiResult(result);
+      
+      // Show success message
+      if (result.success) {
+        console.log(`✅ AI processing completed! Created ${result.tasksCreated} tasks and ${result.notesCreated} notes`);
+      }
+    } catch (error) {
+      console.error('❌ AI processing failed:', error);
+      setAiResult({ success: false, error: error.message });
+    } finally {
+      setIsProcessingAI(false);
+    }
+  };
+
   // Create the chat panel component - function component instead of memoized JSX
   const ChatPanel = useCallback(() => (
     <div className="h-full flex flex-col">
@@ -195,6 +425,22 @@ export default function Chat() {
             {showChatOnly ? <Sparkle size={16} /> : <ChatCircle size={16} />}
             {showChatOnly ? "AI Mode" : "Chat Mode"}
           </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleProcessWithAI}
+            disabled={isProcessingAI}
+            className="flex items-center gap-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white hover:text-white"
+          >
+            {isProcessingAI ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <MagicWand size={16} />
+            )}
+            {isProcessingAI ? "Processing..." : "AI Robot"}
+          </Button>
+          
           <Bug size={16} />
           <Toggle
             toggled={showDebug}
@@ -226,6 +472,37 @@ export default function Chat() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+        {/* AI Processing Result */}
+        {aiResult && (
+          <div className={`mb-4 p-3 rounded-lg ${aiResult.success ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+            <div className="flex items-center gap-2">
+              <MagicWand size={16} className={aiResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+              {aiResult.success ? (
+                <div className="flex-1">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    ✅ AI processing completed! Created {aiResult.tasksCreated} tasks and {aiResult.notesCreated} notes
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    Processed {aiResult.messagesProcessed} messages and {aiResult.transcriptsProcessed} transcripts
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  ❌ AI processing failed: {aiResult.error}
+                </p>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAiResult(null)}
+                className="h-6 w-6 p-0"
+              >
+                <X size={12} />
+              </Button>
+            </div>
+          </div>
+        )}
+        
         {showChatOnly && (
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div className="flex items-center gap-2">
@@ -236,10 +513,8 @@ export default function Chat() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  // TODO: Implement AI processing
-                  console.log("Process with AI");
-                }}
+                onClick={handleProcessWithAI}
+                disabled={isProcessingAI}
                 className="ml-auto"
               >
                 <Sparkle size={14} className="mr-1" />
@@ -249,7 +524,7 @@ export default function Chat() {
           </div>
         )}
 
-        {!showChatOnly && agentMessages.length === 0 && (
+        {!showChatOnly && (
           <div className="h-full flex items-center justify-center">
             <Card className="p-6 max-w-md mx-auto bg-neutral-100 dark:bg-neutral-900">
               <div className="text-center space-y-4">
@@ -265,8 +540,8 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Chat Messages */}
-        {showChatOnly && chatMessages.map((message, index) => (
+        {/* Chat Messages - Show both regular messages and demo messages */}
+        {(showChatOnly || true) && messages.map((message, index) => (
           <div key={message.id} className="flex justify-start">
             <div className="flex gap-2 max-w-[85%]">
               <Avatar username={message.sender_name} />
@@ -275,15 +550,15 @@ export default function Chat() {
                   <p className="text-sm">{message.content}</p>
                 </Card>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {formatTime(new Date(message.created_at))}
+                  {formatTime(new Date(message.created_at || message.timestamp))}
                 </p>
               </div>
             </div>
           </div>
         ))}
 
-        {/* AI Messages */}
-        {!showChatOnly && agentMessages.map((m: Message, index) => {
+        {/* AI Messages - Always empty for demo */}
+        {!showChatOnly && [].map((m: Message, index) => {
           const isUser = m.role === "user";
           const showAvatar =
             index === 0 || agentMessages[index - 1]?.role !== m.role;
@@ -379,9 +654,9 @@ export default function Chat() {
           if (showChatOnly) {
             // Handle chat message submission
             const message = chatInput.trim();
-            if (message) {
-              // TODO: Send chat message to backend
-              console.log("Sending chat message:", message);
+            if (message && userName) {
+              // Send chat message to backend
+              sendMessage(message, userName);
               setChatInput("");
               setTextareaHeight("auto");
             }
@@ -475,7 +750,7 @@ export default function Chat() {
     chatInput,
     agentInput,
     agentMessages,
-    chatMessages,
+    messages,
     pendingToolCallConfirmation,
     isLoading,
     textareaHeight,

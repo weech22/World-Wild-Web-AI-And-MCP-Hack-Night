@@ -9,13 +9,17 @@ export function RightPanel() {
   const pendingTasks = tasks.filter(task => !task.completed);
 
   const handleAddTask = () => {
-    addTask({
-      title: "New Task",
-      description: "Click to edit this task",
-      assignedTo: "Unassigned",
-      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      completed: false
-    });
+    const taskName = window.prompt("Enter task name:");
+    
+    if (taskName && taskName.trim()) {
+      addTask({
+        title: taskName.trim(),
+        description: "Click to edit this task",
+        assignedTo: "Unassigned",
+        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        completed: false
+      });
+    }
   };
 
   return (

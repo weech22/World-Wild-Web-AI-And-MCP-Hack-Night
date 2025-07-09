@@ -57,13 +57,14 @@ interface VoiceContextType {
   startTranscription: () => void;
   stopTranscription: () => void;
   clearTranscripts: () => void;
+  addDemoTranscript: (transcript: VoiceTranscript) => void;
 }
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 export function VoiceProvider({ children }: { children: ReactNode }) {
   // Get backend context
-  const { joinRoom: joinBackendRoom, sendTranscript, participantCount, isSocketConnected: isBackendConnected } = useBackend();
+  const { joinRoom: joinBackendRoom, sendTranscript, participantCount, participants: backendParticipants, isSocketConnected: isBackendConnected } = useBackend();
   
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
@@ -75,70 +76,38 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const [isDeafened, setIsDeafened] = useState(false);
   const [volume, setVolumeState] = useState(1);
   
-  // Participants with mock data
-  const [participants, setParticipants] = useState<VoiceParticipant[]>([
-    {
-      id: "mock-user-1",
-      name: "Alice (Mock)",
-      isMuted: false,
-      isCurrentUser: false,
-      audioLevel: 0.3,
-      isConnected: true
-    },
-    {
-      id: "mock-user-2", 
-      name: "Bob (Mock)",
-      isMuted: true,
-      isCurrentUser: false,
-      audioLevel: 0,
-      isConnected: true
-    }
-  ]);
+  // Real participants only
+  const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
 
-  // Update participants count based on backend
+  // Update participants based on backend data
   useEffect(() => {
-    if (isBackendConnected && participantCount > 0) {
-      // Generate mock participants based on backend count
-      const mockParticipants = Array.from({ length: participantCount - 1 }, (_, i) => ({
-        id: `participant-${i + 1}`,
-        name: `User ${i + 1}`,
-        isMuted: Math.random() > 0.5,
-        isCurrentUser: false,
-        audioLevel: Math.random() * 0.5,
-        isConnected: true
+    if (backendParticipants && backendParticipants.length > 0) {
+      // Convert backend participants to VoiceParticipant format, avoiding duplicates
+      const voiceParticipants = backendParticipants.map(participant => ({
+        id: participant.id || crypto.randomUUID(),
+        name: participant.userName || participant.name || 'Unknown User',
+        isMuted: participant.isMuted || false,
+        isCurrentUser: participant.isCurrentUser || false,
+        audioLevel: participant.audioLevel || 0,
+        isConnected: participant.isConnected !== undefined ? participant.isConnected : true
       }));
-      setParticipants(mockParticipants);
+      
+      // Only update if different from current participants
+      setParticipants(prev => {
+        const isSame = prev.length === voiceParticipants.length && 
+                      prev.every((p, i) => p.id === voiceParticipants[i]?.id);
+        if (!isSame) {
+          console.log('🎤 Voice participants updated:', voiceParticipants);
+          return voiceParticipants;
+        }
+        return prev;
+      });
     }
-  }, [participantCount, isBackendConnected]);
+  }, [backendParticipants]);
   const [localParticipant, setLocalParticipant] = useState<VoiceParticipant | null>(null);
   
-  // Transcripts with mock data
-  const [transcripts, setTranscripts] = useState<VoiceTranscript[]>([
-    {
-      id: "mock-1",
-      participantId: "mock-user-1",
-      participantName: "Alice",
-      text: "Hey everyone, let's start discussing the new project features.",
-      timestamp: new Date(Date.now() - 300000), // 5 minutes ago
-      isComplete: true
-    },
-    {
-      id: "mock-2",
-      participantId: "mock-user-2",
-      participantName: "Bob",
-      text: "Great idea! I think we should focus on the user interface first.",
-      timestamp: new Date(Date.now() - 250000), // 4 minutes ago
-      isComplete: true
-    },
-    {
-      id: "mock-3",
-      participantId: "mock-user-3",
-      participantName: "Charlie",
-      text: "We also need to consider the backend architecture and database design.",
-      timestamp: new Date(Date.now() - 200000), // 3 minutes ago
-      isComplete: true
-    }
-  ]);
+  // Real transcripts only
+  const [transcripts, setTranscripts] = useState<VoiceTranscript[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   
   // Refs for media handling
@@ -190,7 +159,27 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
           // Send transcript to backend
           if (latestResult.isFinal && isBackendConnected) {
             try {
+              // Send via Socket.IO (legacy)
               sendTranscript(latestResult[0].transcript, localParticipant.name);
+              
+              // Also save to database
+              const response = await fetch('http://localhost:3001/api/transcripts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  content: latestResult[0].transcript,
+                  speaker_id: localParticipant.id,
+                  speaker_name: localParticipant.name,
+                  room_id: roomId,
+                  is_final: true
+                })
+              });
+              
+              if (response.ok) {
+                console.log('✅ Transcript saved to database');
+              } else {
+                console.error('❌ Failed to save transcript to database:', response.status);
+              }
             } catch (error) {
               console.error('Failed to send transcript:', error);
             }
@@ -603,6 +592,11 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const clearTranscripts = () => {
     setTranscripts([]);
   };
+
+  // Add demo transcript
+  const addDemoTranscript = (transcript: VoiceTranscript) => {
+    setTranscripts(prev => [...prev, transcript]);
+  };
   
   // Mock audio level animation - DISABLED to prevent focus loss
   // useEffect(() => {
@@ -641,7 +635,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     setVolume,
     startTranscription,
     stopTranscription,
-    clearTranscripts
+    clearTranscripts,
+    addDemoTranscript
   };
 
   return (
